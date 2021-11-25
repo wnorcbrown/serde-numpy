@@ -6,7 +6,7 @@ use::pyo3::exceptions::{PyValueError, PyIOError};
 use serde_json::Value;
 
 mod parsing;
-use parsing::{parse_float_column};
+use parsing::{parse_float_column, parse_keys};
 use parsing::{VectorTypes};
 
 
@@ -18,10 +18,10 @@ fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 
     fn _parse_float_array<'py>(py: Python<'py>, value: &Value, key: &str, index: usize) -> PyResult<&'py PyArray<f64, Dim<[usize; 1]>>> {
         if let Ok(VectorTypes::FloatArray(vector)) = parse_float_column(&value, key, index) {
-            return Ok(vector.into_pyarray(py))
+            Ok(vector.into_pyarray(py))
         }
         else {
-            return Err(PyErr::new::<PyValueError, _>("JSON Key does not exist!"))
+            Err(PyErr::new::<PyValueError, _>("JSON Key does not exist!"))
         }
     }
     

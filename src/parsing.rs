@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+use pyo3::types::IntoPyDict;
+use pyo3::{IntoPy, ToPyObject};
 use serde_json::Value;
-use serde_json::Result as SerdeResult;
 
 
 #[derive(Debug)]
@@ -26,6 +28,7 @@ pub fn parse_int_column(value: &Value, key: &str, index: usize) -> Result<Vector
     }
 }
 
+
 pub fn parse_float_column(value: &Value, key: &str, index: usize) -> Result<VectorTypes, String> {
     if let Some(stream) = value[key].as_array() {
         let mut out: Vec<f64> = vec![0.0; stream.len()];
@@ -41,6 +44,7 @@ pub fn parse_float_column(value: &Value, key: &str, index: usize) -> Result<Vect
     }
 }
 
+
 pub fn parse_bool_column(value: &Value, key: &str, index: usize) -> Result<VectorTypes, String> {
     if let Some(stream) = value[key].as_array() {
         let mut out: Vec<bool> = vec![false; stream.len()];
@@ -55,6 +59,7 @@ pub fn parse_bool_column(value: &Value, key: &str, index: usize) -> Result<Vecto
         Err(format!("json key {} does not exist", &key))
     }
 }
+
 
 pub fn parse_str_column(value: &Value, key: &str, index: usize) -> Result<VectorTypes, String> {
     if let Some(stream) = value[key].as_array() {
@@ -87,4 +92,55 @@ pub fn parse_column(value: &Value, key: &str, index: usize) -> Result<VectorType
         return parse_str_column(value, key, index)
     }
     Err(format!("cannot parse column with initial type {:?}", initial_value))
+}
+
+
+pub fn parse_columns(value: &Value, key: &str, indexes: Vec<usize>) -> Result<Vec<VectorTypes>, String> {
+    let mut out = Vec::new();
+    for index in indexes {
+        if let Ok(vector) = parse_column(&value, &key, index) {
+            out.push(vector);
+        }
+        else {
+            return Err(format!("cannot parse column at index {} for key {}", index, key))
+        }
+    }
+    Ok(out)
+}
+
+
+pub struct ArrayMap {
+    data: HashMap<String, Vec<VectorTypes>>
+}
+
+impl ArrayMap {
+    fn new() -> ArrayMap {
+        ArrayMap{data: HashMap::<String, Vec<VectorTypes>>::new()}
+    }
+
+}
+
+impl ArrayMap {
+    fn insert(&mut self, key: String, value: Vec<VectorTypes>) {
+        self.data.insert(key, value);
+    }
+}
+
+impl IntoPy for ArrayMap {
+
+}
+
+
+
+pub fn parse_keys<'a>(value: &Value, keys: Vec<&'a str>, indexes: Vec<Vec<usize>>) -> Result<ArrayMap, String> {
+    assert_eq!(keys.len(), indexes.len(), "Number of keys: {} is not the same as number of indexes: {}", keys.len(), indexes.len());
+    let mut out = ArrayMap::new();
+    for (&key, indexes_) in keys.iter().zip(indexes) {
+        let result = parse_columns(&value, key, indexes_);
+        match result  {
+            Ok(vector) => {out.insert(String::from(key), vector);},
+            Err(err) => return Err(err)
+        }
+    }
+    Ok(out)
 }
