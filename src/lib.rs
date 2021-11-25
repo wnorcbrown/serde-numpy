@@ -17,9 +17,9 @@ use parsing::{VectorTypes};
 fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 
 
-    fn _parse_float_array(value: &Value, key: &str, index: usize) -> PyResult<Vec<f64>> {
+    fn _parse_float_array<'py>(py: Python<'py>, value: &Value, key: &str, index: usize) -> PyResult<&'py PyArray<f64, Dim<[usize; 1]>>> {
         if let Ok(VectorTypes::FloatArray(vector)) = parse_float_column(&value, key, index) {
-            return Ok(vector)
+            return Ok(vector.into_pyarray(py))
         }
         else {
             return Err(PyErr::new::<PyValueError, _>("JSON Key does not exist!"))
@@ -29,12 +29,12 @@ fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     
     #[pyfn(m)]
     #[pyo3(name = "parse_float_array")]
-    fn parse_float_array(py: Python, json_str: &str, key: &str, index: usize) -> PyResult<Vec<f64>> {
+    fn parse_float_array<'py>(py: Python<'py>, json_str: &str, key: &str, index: usize) -> PyResult<&'py PyArray<f64, Dim<[usize; 1]>>> {
 
         let result = serde_json::from_str(json_str);
         
         match result {
-            Ok(value) => _parse_float_array(&value, key, index),
+            Ok(value) => _parse_float_array(py, &value, key, index),
             Err(_err) => return Err(PyErr::new::<PyIOError, _>("Invalid JSON"))
         }
 
