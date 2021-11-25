@@ -1,10 +1,9 @@
 use numpy::ndarray::{Dim};
 use numpy::{IntoPyArray, PyArray};
 use pyo3::prelude::{pymodule, PyModule, PyResult, Python};
-use pyo3::types::PyList;
-use::pyo3::{PyErr};
+use::pyo3::PyErr;
 use::pyo3::exceptions::{PyValueError, PyIOError};
-use serde_json::{Value, Error};
+use serde_json::Value;
 
 mod parsing;
 use parsing::{parse_float_column};
