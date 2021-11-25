@@ -1,0 +1,4 @@
+*.pytest_cache*
+target/
+*.so
+*__pycache__*
