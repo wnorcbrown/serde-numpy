@@ -53,10 +53,10 @@ def run_profile(n_rows: int, n_cols: int, dtypes: Sequence[Type] = (int, float, 
         _ = serde_numpy_loads(data, len(dtypes), n_cols, dtypes)
         times_serde_numpy.append(time.time() - time0)
     
-    print("-"*30)
+    print("-"*75)
     print(f"{name} data times for orjson:: Mean: {np.mean(times_orjson):.3} Std: {np.std(times_orjson):.3}")
     print(f"{name} data times for serde numpy:: Mean: {np.mean(times_serde_numpy):.3} Std: {np.std(times_serde_numpy):.3}")
-    print("-"*30)
+    print("-"*75)
     
 if __name__ == "__main__":
     run_profile(2*1, 4, name="tiny", n_iters=1000)
