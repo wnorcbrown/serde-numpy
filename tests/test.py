@@ -36,16 +36,16 @@ def test_bool():
 
 
 def test():
-    out = parse_keys(data, ["stream_1", "stream_2"], [[0,1,2], [0,2,4]])
+    out = parse_keys(data, ["stream_1", "stream_2"], [[0,1,2], [0,2,4]], [["int", "int", "float"], ["int", "float", "int"]])
     expected = {
+        'stream_1': [
+            np.array([36, 36, 36]), 
+            np.array([60, 61, 63]), 
+            np.array([1610034058843.0, 1610034058847.0, 1610034058888.0])],
         'stream_2': [
             np.array([36, 36, 36]), 
             np.array([1610034053955.0, 1610034053972.0, 1610034053989.0]), 
             np.array([1, 1, 1])], 
-        'stream_1': [
-            np.array([36, 36, 36]), 
-            np.array([60, 61, 63]), 
-            np.array([1610034058843.0, 1610034058847.0, 1610034058888.0])]
             }
     for k in out:
         for i in range(len(out[k])):

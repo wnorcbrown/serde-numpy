@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use itertools::izip;
 
 use numpy::IntoPyArray;
 use numpy::PyArray;
@@ -94,7 +95,7 @@ pub fn parse_bool_column<'py>(py: Python<'py>, value: &Value, key: &str, index: 
 // }
 
 
-pub fn parse_column<'py>(py: Python<'py>, value: &Value, key: &str, index: usize) -> PyResult<NumpyTypes<'py>> {
+pub fn parse_column_untyped<'py>(py: Python<'py>, value: &Value, key: &str, index: usize) -> PyResult<NumpyTypes<'py>> {
     let initial_value = &value[key][0][index];
     if initial_value.is_f64() {
         return parse_float_column(py, value, key, index)
@@ -112,10 +113,27 @@ pub fn parse_column<'py>(py: Python<'py>, value: &Value, key: &str, index: usize
 }
 
 
-pub fn parse_columns<'py>(py: Python<'py>, value: &Value, key: &str, indexes: Vec<usize>) -> PyResult<Vec<NumpyTypes<'py>>> {
+pub fn parse_column_typed<'py>(py: Python<'py>, value: &Value, key: &str, index: usize, dtype: &str) -> PyResult<NumpyTypes<'py>> {
+    if dtype == "float" {
+        return parse_float_column(py, value, key, index)
+    }
+    else if dtype == "int" {
+        return parse_int_column(py, value, key, index)
+    }
+    else if dtype == "bool" {
+        return parse_bool_column(py, value, key, index)
+    }
+    // else if initial_value.is_string() {
+    //     return parse_str_column(py, value, key, index)
+    // }
+    Err(PyErr::new::<PyIOError, _>(format!("cannot parse column with dtype {:?}", dtype)))
+}
+
+
+pub fn parse_columns<'py>(py: Python<'py>, value: &Value, key: &str, indexes: Vec<usize>, dtypes: Vec<&str>) -> PyResult<Vec<NumpyTypes<'py>>> {
     let mut out = Vec::new();
-    for index in indexes {
-        if let Ok(vector) = parse_column(py, &value, &key, index) {
+    for (index, dtype) in izip!(indexes, dtypes) {
+        if let Ok(vector) = parse_column_typed(py, &value, &key, index, dtype) {
             out.push(vector);
         }
         else {
@@ -126,11 +144,11 @@ pub fn parse_columns<'py>(py: Python<'py>, value: &Value, key: &str, indexes: Ve
 }
 
 
-pub fn parse_keys<'py>(py: Python<'py>, value: &Value, keys: Vec<&str>, indexes: Vec<Vec<usize>>) -> PyResult<HashMap<String, Vec<NumpyTypes<'py>>>> {
+pub fn parse_keys<'py>(py: Python<'py>, value: &Value, keys: Vec<&str>, indexes: Vec<Vec<usize>>, types: Vec<Vec<&str>>) -> PyResult<HashMap<String, Vec<NumpyTypes<'py>>>> {
     assert_eq!(keys.len(), indexes.len(), "Number of keys: {} is not the same as number of indexes: {}", keys.len(), indexes.len());
     let mut out = HashMap::new();
-    for (&key, indexes_) in keys.iter().zip(indexes) {
-        let result = parse_columns(py, &value, key, indexes_);
+    for (key, indexes_, types_) in izip!(keys, indexes, types) {
+        let result = parse_columns(py, &value, key, indexes_, types_);
         match result  {
             Ok(vector) => {out.insert(String::from(key), vector);},
             Err(err) => return Err(err)

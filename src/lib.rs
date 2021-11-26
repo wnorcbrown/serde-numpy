@@ -60,12 +60,12 @@ fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 
     #[pyfn(m)]
     #[pyo3(name = "parse_keys")]
-    fn parse_keys_<'py>(py: Python<'py>, json_str: &[u8], keys: Vec<&str>, indexes: Vec<Vec<usize>>) -> PyResult<HashMap<std::string::String, Vec<NumpyTypes<'py>>>> {
+    fn parse_keys_<'py>(py: Python<'py>, json_str: &[u8], keys: Vec<&str>, indexes: Vec<Vec<usize>>, types: Vec<Vec<&str>>) -> PyResult<HashMap<std::string::String, Vec<NumpyTypes<'py>>>> {
 
         let result = serde_json::from_slice(json_str);
         
         match result {
-            Ok(value) => parse_keys(py, &value, keys, indexes),
+            Ok(value) => parse_keys(py, &value, keys, indexes, types),
             Err(_err) => return Err(PyErr::new::<PyIOError, _>("Invalid JSON"))
         }
 

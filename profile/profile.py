@@ -31,10 +31,11 @@ def orjson_numpy_loads(json_str: bytes, n_keys: int) -> Mapping[str, np.ndarray]
     return out
 
 
-def serde_numpy_loads(json_str: bytes, n_keys: int, n_cols: int) -> Mapping[str, List[np.ndarray]]:
+def serde_numpy_loads(json_str: bytes, n_keys: int, n_cols: int, dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
     keys = [f"key_{i}" for i in range(n_keys)]
     indexes = [list(range(n_cols)) for _ in keys]
-    return parse_keys(json_str, keys, indexes)
+    dtypes = [[dtype.__name__]*n_cols for dtype in dtypes]
+    return parse_keys(json_str, keys, indexes, dtypes)
 
 
 def run_profile(n_rows: int, n_cols: int, dtypes: Sequence[Type] = (int, float, bool), name: str = "", n_iters: int = 100):
@@ -49,7 +50,7 @@ def run_profile(n_rows: int, n_cols: int, dtypes: Sequence[Type] = (int, float, 
     times_serde_numpy = []
     for _ in range(n_iters):
         time0 = time.time()
-        _ = serde_numpy_loads(data, len(dtypes), n_cols)
+        _ = serde_numpy_loads(data, len(dtypes), n_cols, dtypes)
         times_serde_numpy.append(time.time() - time0)
     
     print("-"*30)
