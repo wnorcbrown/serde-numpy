@@ -32,10 +32,10 @@ impl IntoPy<PyObject> for NumpyTypes<'_> {
 
 pub fn parse_int_column<'py>(py: Python<'py>, value: &Value, key: &str, index: usize) -> PyResult<NumpyTypes<'py>> {
     if let Some(stream) = value[key].as_array() {
-        let mut out: Vec<i64> = vec![0; stream.len()];
+        let mut out: Vec<i64> = Vec::new();
         for i in 0..stream.len() {
-            if let Some(v) = value[key][i][index].as_i64() {
-                out[i] = v;
+            if let Some(v) = stream[i][index].as_i64() {
+                out.push(v);
             };
         }
         Ok(NumpyTypes::IntArray(out.into_pyarray(py)))
@@ -48,10 +48,10 @@ pub fn parse_int_column<'py>(py: Python<'py>, value: &Value, key: &str, index: u
 
 pub fn parse_float_column<'py>(py: Python<'py>, value: &Value, key: &str, index: usize) -> PyResult<NumpyTypes<'py>> {
     if let Some(stream) = value[key].as_array() {
-        let mut out: Vec<f64> = vec![0.0; stream.len()];
+        let mut out: Vec<f64> = Vec::new();
         for i in 0..stream.len() {
-            if let Some(v) = value[key][i][index].as_f64() {
-                out[i] = v;
+            if let Some(v) = stream[i][index].as_f64() {
+                out.push(v);
             };
         }
         Ok(NumpyTypes::FloatArray(out.into_pyarray(py)))
@@ -64,10 +64,10 @@ pub fn parse_float_column<'py>(py: Python<'py>, value: &Value, key: &str, index:
 
 pub fn parse_bool_column<'py>(py: Python<'py>, value: &Value, key: &str, index: usize) -> PyResult<NumpyTypes<'py>> {
     if let Some(stream) = value[key].as_array() {
-        let mut out: Vec<bool> = vec![false; stream.len()];
+        let mut out: Vec<bool> = Vec::new();
         for i in 0..stream.len() {
-            if let Some(v) = value[key][i][index].as_bool() {
-                out[i] = v;
+            if let Some(v) = stream[i][index].as_bool() {
+                out.push(v);
             };
         }
         Ok(NumpyTypes::BoolArray(out.into_pyarray(py)))
@@ -82,7 +82,7 @@ pub fn parse_bool_column<'py>(py: Python<'py>, value: &Value, key: &str, index: 
 //     if let Some(stream) = value[key].as_array() {
 //         let mut out: Vec<String> = vec!["".to_string(); stream.len()];
 //         for i in 0..stream.len() {
-//             if let Some(v) = value[key][i][index].as_str() {
+//             if let Some(v) = stream[i][index].as_str() {
 //                 out[i] = v.to_string();
 //             };
 //         }
@@ -124,24 +124,6 @@ pub fn parse_columns<'py>(py: Python<'py>, value: &Value, key: &str, indexes: Ve
     }
     Ok(out)
 }
-
-
-// pub struct ArrayMap {
-//     data: HashMap<String, Vec<NumpyTypes>>
-// }
-
-// impl ArrayMap {
-//     fn new() -> ArrayMap {
-//         ArrayMap{data: HashMap::<String, Vec<NumpyTypes>>::new()}
-//     }
-
-// }
-
-// impl ArrayMap {
-//     fn insert(&mut self, key: String, value: Vec<VectorTypes>) {
-//         self.data.insert(key, value);
-//     }
-// }
 
 
 pub fn parse_keys<'py>(py: Python<'py>, value: &Value, keys: Vec<&str>, indexes: Vec<Vec<usize>>) -> PyResult<HashMap<String, Vec<NumpyTypes<'py>>>> {
