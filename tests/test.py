@@ -2,7 +2,7 @@ import numpy as np
 from serde_numpy import parse_float_array, parse_int_array, parse_bool_array, parse_keys
 
 
-data = """
+data = b"""
     {"id": "161fjkjnbf", 
     "stream_1": 
     [[36, 60, 1610034058843.0, 1, 1, -519151558, 49, "", -1, false, false, false, true, 0, "Digit", "1", false, "-1", 20912.165, -1], 
@@ -33,6 +33,7 @@ def test_bool():
     assert out.dtype == np.bool
     assert np.array_equal(out, [False, True, False])
     assert isinstance(out, np.ndarray)
+
 
 def test():
     out = parse_keys(data, ["stream_1", "stream_2"], [[0,1,2], [0,2,4]])
