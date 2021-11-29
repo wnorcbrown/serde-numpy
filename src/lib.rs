@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use pyo3::prelude::{pymodule, PyModule, PyResult, Python};
 use::pyo3::PyErr;
 use::pyo3::exceptions::{PyIOError};
+use pyo3::types::PyType;
 
 mod parsing;
-use parsing::{parse_float_column, parse_bool_column, parse_int_column, parse_keys};
-use parsing::{NumpyTypes};
+use parsing::{parse_float_column, parse_bool_column, parse_int_column, parse_keys, deserialize};
+use parsing::{NumpyTypes, ReturnTypes};
 
 
 
@@ -66,6 +67,20 @@ fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
         
         match result {
             Ok(value) => parse_keys(py, &value, keys, indexes, types),
+            Err(_err) => return Err(PyErr::new::<PyIOError, _>("Invalid JSON"))
+        }
+
+        
+    }
+
+    #[pyfn(m)]
+    #[pyo3(name = "deserialize")]
+    fn deserialize_<'py>(py: Python<'py>, json_str: &[u8], structure: HashMap<&'py str, &'py PyType>) -> PyResult<HashMap<&'py str, ReturnTypes>> {
+
+        let result = serde_json::from_slice(json_str);
+        
+        match result {
+            Ok(value) => deserialize(py, value, structure),
             Err(_err) => return Err(PyErr::new::<PyIOError, _>("Invalid JSON"))
         }
 
