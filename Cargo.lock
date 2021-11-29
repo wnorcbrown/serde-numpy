@@ -329,6 +329,7 @@ name = "serde_numpy"
 version = "0.1.0"
 dependencies = [
  "itertools",
+ "ndarray",
  "numpy",
  "pyo3",
  "serde_json",
