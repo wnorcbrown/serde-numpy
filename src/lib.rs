@@ -7,7 +7,8 @@ use pyo3::types::PyType;
 
 mod parsing;
 use parsing::{parse_float_column, parse_bool_column, parse_int_column, parse_keys, deserialize};
-use parsing::{NumpyTypes, ReturnTypes};
+use parsing::{NumpyTypes};
+use parsing::parse_utils::ReturnTypes;
 
 
 

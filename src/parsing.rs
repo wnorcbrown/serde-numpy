@@ -6,12 +6,19 @@ use serde_json::Value;
 use numpy::IntoPyArray;
 use numpy::PyArray;
 use numpy::ndarray::Dim;
-use ndarray::{ArrayBase, Array2, Array3, OwnedRepr};
 
 use pyo3::exceptions::{PyValueError, PyIOError};
 use pyo3::prelude::{Python, PyErr, PyResult, IntoPy, PyObject};
 use pyo3::conversion::AsPyPointer;
 use pyo3::types::PyType;
+
+pub mod parse_utils;
+mod parse_np_float;
+mod parse_np_int;
+
+use parse_utils::ReturnTypes;
+use parse_np_float::{parse_float32, parse_float64};
+use parse_np_int::{parse_int32, parse_int64};
 
 
 
@@ -164,27 +171,16 @@ impl IntoPy<PyObject> for NumpyTypes<'_> {
 
 
 
-pub enum ReturnTypes {
-    String(String),
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-    FloatArray1D(Vec<f32>),
-    FloatArray2D(ArrayBase<OwnedRepr<f32>, Dim<[usize; 2]>>),
-}
 
-impl IntoPy<PyObject> for ReturnTypes {
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        match self {
-            ReturnTypes::String(value) => value.into_py(py),
-            ReturnTypes::Bool(value) => value.into_py(py),
-            ReturnTypes::Int(value) => value.into_py(py),
-            ReturnTypes::Float(value) => value.into_py(py),
-            ReturnTypes::FloatArray1D(value) => unsafe { PyObject::from_borrowed_ptr(py, value.into_pyarray(py).as_ptr())},
-            ReturnTypes::FloatArray2D(value) => unsafe { PyObject::from_borrowed_ptr(py, value.into_pyarray(py).as_ptr())},
-        }
-    }
-}
+
+
+
+
+
+
+
+
+
 
 
 
@@ -227,90 +223,6 @@ fn parse_float(value: &Value) -> PyResult<ReturnTypes> {
 }
 
 
-fn _get_shape(value: &Value, mut shape: Vec<usize>) -> Vec<usize> {
-    if let Some(stream) = value.as_array() {
-        shape.push(stream.len());
-        _get_shape(&value[0], shape)
-    }
-    else {
-        shape
-    }
-}
-
-fn get_shape(value: &Value) -> Vec<usize> {
-    _get_shape(value, Vec::new())
-}
-
-
-fn parse_float32_0d(value: &Value) -> PyResult<ReturnTypes> {
-    if let Some(float) = value.as_f64() {
-        Ok(ReturnTypes::Float(float))
-    }
-    else {
-        Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type np.float32", value)))
-    }
-}
-
-
-// pub fn parse_float_column<'py>(py: Python<'py>, value: &Value, key: &str, index: usize) -> PyResult<NumpyTypes<'py>> {
-//     if let Some(stream) = value[key].as_array() {
-//         let mut out: Vec<f64> = Vec::new();
-//         for i in 0..stream.len() {
-//             if let Some(v) = stream[i][index].as_f64() {
-//                 out.push(v);
-//             };
-//         }
-//         Ok(NumpyTypes::FloatArray(out.into_pyarray(py)))
-//     }
-//     else {
-//         Err(PyErr::new::<PyValueError, _>(format!("json key {} does not exist", &key)))
-//     }
-// }
-
-
-fn parse_float32_1d(value: &Value, shape: Vec<usize>) -> PyResult<ReturnTypes> {
-    let mut out = Vec::new();
-    for i in 0..shape[0] {
-        if let Some(v) = value[i].as_f64() {
-            out.push(v as f32);
-        }
-        else {
-            return Err(PyErr::new::<PyValueError, _>(format!("Found {:?} in json list, cannot convert to np.float32", value[i])))
-        }
-    }
-    Ok(ReturnTypes::FloatArray1D(out))
-}
-
-
-fn parse_float32_2d(value: &Value, shape: Vec<usize>) -> PyResult<ReturnTypes> {
-    let mut out = Array2::<f32>::zeros((shape[0], shape[1]));
-    for i in 0..shape[0] {
-        for j in 0..shape[1] {
-            if let Some(v) = value[i][j].as_f64(){
-                out[[i, j]] = v as f32;
-            }
-            else {
-                return Err(PyErr::new::<PyValueError, _>(format!("Found {:?} in json list, cannot convert to np.float32", value[i][j])))
-            }
-        }
-    }
-    Ok(ReturnTypes::FloatArray2D(out))
-}
-
-
-
-fn parse_float32(value: &Value) -> PyResult<ReturnTypes> {
-    let shape = get_shape(value);
-    match shape.len() {
-        0 => parse_float32_0d(value),
-        1 => parse_float32_1d(value, shape),
-        2 => parse_float32_2d(value, shape),
-        _ => Err(PyErr::new::<PyValueError, _>(format!("{}-d array not currently supported", shape.len())))
-    }
-}
-
-
-
 pub fn deserialize<'py>(py: Python<'py>, value: Value, structure: HashMap<&'py str, &'py PyType>) -> PyResult<HashMap<&'py str, ReturnTypes>> {
     let mut out = HashMap::new();
     for (k, v) in structure {
@@ -321,6 +233,9 @@ pub fn deserialize<'py>(py: Python<'py>, value: Value, structure: HashMap<&'py s
                 "int" => {out.insert(k, parse_int(&value[k])?);},
                 "float" => {out.insert(k, parse_float(&value[k])?);},
                 "float32" => {out.insert(k, parse_float32(&value[k])?);},
+                "float64" => {out.insert(k, parse_float64(&value[k])?);},
+                "int32" => {out.insert(k, parse_int32(&value[k])?);},
+                "int64" => {out.insert(k, parse_int64(&value[k])?);},
                 _ => {return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", v)))}
             }
         }
