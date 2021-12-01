@@ -23,7 +23,7 @@ fn parse_int_0d<T>(py: Python, value: &Value, converter: &dyn Fn(i64) -> T) -> P
         Ok(int.into_py(py))
     }
     else {
-        Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type np.int64", value)))
+        Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type np.int", value)))
     }
 }
 
@@ -35,7 +35,7 @@ fn parse_int_1d<T: Element>(py: Python, value: &Value, shape: Vec<usize>, conver
             out.push(converter(v));
         }
         else {
-            return Err(PyErr::new::<PyValueError, _>(format!("Found {:?} in json list, cannot convert to np.int64", value[i])))
+            return Err(PyErr::new::<PyValueError, _>(format!("Found {:?} in json list, cannot convert to np.int", value[i])))
         }
     }
     Ok(unsafe { PyObject::from_borrowed_ptr(py, out.into_pyarray(py).as_ptr())})
@@ -50,7 +50,7 @@ fn parse_int_2d<T: Element + Zero>(py:Python, value: &Value, shape: Vec<usize>, 
                 out[[i, j]] = converter(v);
             }
             else {
-                return Err(PyErr::new::<PyValueError, _>(format!("Found {:?} in json list, cannot convert to np.int64", value[i][j])))
+                return Err(PyErr::new::<PyValueError, _>(format!("Found {:?} in json list, cannot convert to np.int", value[i][j])))
             }
         }
     }
