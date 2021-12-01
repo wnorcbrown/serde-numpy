@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use pyo3::prelude::{pymodule, PyModule, PyResult, Python};
+use pyo3::prelude::{pymodule, PyModule, PyResult, Python, PyObject};
 use::pyo3::PyErr;
 use::pyo3::exceptions::{PyIOError};
 use pyo3::types::PyType;
@@ -8,9 +8,6 @@ use pyo3::types::PyType;
 mod parsing;
 use parsing::{parse_float_column, parse_bool_column, parse_int_column, parse_keys, deserialize};
 use parsing::{NumpyTypes};
-use parsing::parse_utils::ReturnTypes;
-
-
 
 
 #[pymodule]
@@ -76,7 +73,7 @@ fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 
     #[pyfn(m)]
     #[pyo3(name = "deserialize")]
-    fn deserialize_<'py>(py: Python<'py>, json_str: &[u8], structure: HashMap<&'py str, &'py PyType>) -> PyResult<HashMap<&'py str, ReturnTypes>> {
+    fn deserialize_<'py>(py: Python<'py>, json_str: &[u8], structure: HashMap<&'py str, &'py PyType>) -> PyResult<HashMap<&'py str, PyObject>> {
 
         let result = serde_json::from_slice(json_str);
         

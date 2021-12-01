@@ -16,9 +16,8 @@ pub mod parse_utils;
 mod parse_np_float;
 mod parse_np_int;
 
-use parse_utils::ReturnTypes;
-use parse_np_float::{parse_float32, parse_float64};
-use parse_np_int::{parse_int32, parse_int64};
+use parse_np_float::{parse_float_array, to_f32, to_f64};
+use parse_np_int::{parse_int_array, to_i32, to_i64};
 
 
 
@@ -184,18 +183,18 @@ impl IntoPy<PyObject> for NumpyTypes<'_> {
 
 
 
-fn parse_str(value: &Value) -> PyResult<ReturnTypes> {
+fn parse_str(py: Python, value: &Value) -> PyResult<PyObject> {
     if let Some(string) = value.as_str() {
-        Ok(ReturnTypes::String(String::from(string)))
+        Ok(string.into_py(py))
     }
     else {
         Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type str", value)))
     }
 }
 
-fn parse_bool(value: &Value) -> PyResult<ReturnTypes> {
+fn parse_bool(py: Python, value: &Value) -> PyResult<PyObject> {
     if let Some(bool) = value.as_bool() {
-        Ok(ReturnTypes::Bool(bool))
+        Ok(bool.into_py(py))
     }
     else {
         Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type bool", value)))
@@ -203,9 +202,9 @@ fn parse_bool(value: &Value) -> PyResult<ReturnTypes> {
 }
 
 
-fn parse_int(value: &Value) -> PyResult<ReturnTypes> {
+fn parse_int(py: Python, value: &Value) -> PyResult<PyObject> {
     if let Some(int) = value.as_i64() {
-        Ok(ReturnTypes::Int(int))
+        Ok(int.into_py(py))
     }
     else {
         Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type int", value)))
@@ -213,9 +212,9 @@ fn parse_int(value: &Value) -> PyResult<ReturnTypes> {
 }
 
 
-fn parse_float(value: &Value) -> PyResult<ReturnTypes> {
+fn parse_float(py: Python, value: &Value) -> PyResult<PyObject> {
     if let Some(float) = value.as_f64() {
-        Ok(ReturnTypes::Float(float))
+        Ok(float.into_py(py))
     }
     else {
         Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type float", value)))
@@ -223,19 +222,19 @@ fn parse_float(value: &Value) -> PyResult<ReturnTypes> {
 }
 
 
-pub fn deserialize<'py>(py: Python<'py>, value: Value, structure: HashMap<&'py str, &'py PyType>) -> PyResult<HashMap<&'py str, ReturnTypes>> {
-    let mut out = HashMap::new();
+pub fn deserialize<'py>(py: Python<'py>, value: Value, structure: HashMap<&'py str, &'py PyType>) -> PyResult<HashMap<&'py str, PyObject>> {
+    let mut out: HashMap<&'py str, PyObject> = HashMap::new();
     for (k, v) in structure {
         if let Ok(type_name) = v.name() {
             match type_name {
-                "str" => {out.insert(k, parse_str(&value[k])?);},
-                "bool" => {out.insert(k, parse_bool(&value[k])?);},
-                "int" => {out.insert(k, parse_int(&value[k])?);},
-                "float" => {out.insert(k, parse_float(&value[k])?);},
-                "float32" => {out.insert(k, parse_float32(&value[k])?);},
-                "float64" => {out.insert(k, parse_float64(&value[k])?);},
-                "int32" => {out.insert(k, parse_int32(&value[k])?);},
-                "int64" => {out.insert(k, parse_int64(&value[k])?);},
+                "str" => {out.insert(k, parse_str(py, &value[k])?);},
+                "bool" => {out.insert(k, parse_bool(py, &value[k])?);},
+                "int" => {out.insert(k, parse_int(py, &value[k])?);},
+                "float" => {out.insert(k, parse_float(py, &value[k])?);},
+                "float32" => {out.insert(k, parse_float_array(py, &value[k], &to_f32)?);},
+                "float64" => {out.insert(k, parse_float_array(py, &value[k], &to_f64)?);},
+                "int32" => {out.insert(k, parse_int_array(py, &value[k], &to_i32)?);},
+                "int64" => {out.insert(k, parse_int_array(py, &value[k], &to_i64)?);},
                 _ => {return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", v)))}
             }
         }
