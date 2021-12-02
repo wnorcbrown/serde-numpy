@@ -211,6 +211,7 @@ pub enum Structure <'py> {
     Map(HashMap<String, Structure<'py>>)
 }
 
+#[derive(Debug)]
 pub enum OutStructure {
     Value(PyObject),
     Map(HashMap<String, OutStructure>)
@@ -247,12 +248,16 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
                 }
                 out.insert(k, OutStructure::Value(obj));
             }
+        }
         else if let Structure::Map(m) = v {
             if let Ok(mapping) = deserialize(py, &value[&k], m) {
                 out.insert(k, OutStructure::Map(mapping));
             }
         }
-    }
+        else {
+            return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", v)))
+        }
+        println!("{:?}", out);
     }
     Ok(out)
 }
