@@ -1,13 +1,23 @@
 use pyo3::{IntoPy, Python, PyObject};
 use serde_json::Value;
 use pyo3::prelude::{PyResult, PyErr};
-use pyo3::exceptions::{PyValueError, PyIOError};
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use ndarray::{Array2};
 use num_traits::identities::Zero;
 use numpy::{Element, IntoPyArray};
 use pyo3::conversion::AsPyPointer;
 
 use crate::parsing::parse_utils::get_shape;
+
+
+pub fn to_i8(i: i64) -> i8 {
+    i as i8
+}
+
+
+pub fn to_i16(i: i64) -> i16 {
+    i as i16
+}
 
 
 pub fn to_i32(i: i64) -> i32 {
@@ -18,12 +28,17 @@ pub fn to_i64(i: i64) -> i64 {
     i
 }
 
+pub fn to_i128(i: i64) -> i128 {
+    i as i128
+}
+
+
 fn parse_int_0d<T>(py: Python, value: &Value, converter: &dyn Fn(i64) -> T) -> PyResult<PyObject> {
     if let Some(int) = value.as_i64() {
         Ok(int.into_py(py))
     }
     else {
-        Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type np.int", value)))
+        Err(PyErr::new::<PyTypeError, _>(format!("Unable to parse value: {:?} as type np.int", value)))
     }
 }
 
@@ -35,7 +50,7 @@ fn parse_int_1d<T: Element>(py: Python, value: &Value, shape: Vec<usize>, conver
             out.push(converter(v));
         }
         else {
-            return Err(PyErr::new::<PyValueError, _>(format!("Found {:?} in json list, cannot convert to np.int", value[i])))
+            return Err(PyErr::new::<PyTypeError, _>(format!("Found {:?} in json list, cannot convert to np.int", value[i])))
         }
     }
     Ok(unsafe { PyObject::from_borrowed_ptr(py, out.into_pyarray(py).as_ptr())})
@@ -50,7 +65,7 @@ fn parse_int_2d<T: Element + Zero>(py:Python, value: &Value, shape: Vec<usize>, 
                 out[[i, j]] = converter(v);
             }
             else {
-                return Err(PyErr::new::<PyValueError, _>(format!("Found {:?} in json list, cannot convert to np.int", value[i][j])))
+                return Err(PyErr::new::<PyTypeError, _>(format!("Found {:?} in json list, cannot convert to np.int", value[i][j])))
             }
         }
     }

@@ -33,12 +33,30 @@ def test_deserialize_str(json_str: bytes):
     assert deserialized["str"] == "h"
 
 
+def test_deserialize_bool_fail(json_str: bytes):
+    with pytest.raises(TypeError):
+        structure = {"str": bool}
+        deserialized = deserialize(json_str, structure)
+        assert_same_structure(structure, deserialized)
+        assert_correct_types(structure, deserialized)
+        assert deserialized["str"] == "h"
+
+
 def test_deserialize_bool(json_str: bytes):
     structure = {"bool": bool}
     deserialized = deserialize(json_str, structure)
     assert_same_structure(structure, deserialized)
     assert_correct_types(structure, deserialized)
     assert deserialized["bool"] == True
+
+
+def test_deserialize_float_fail(json_str: bytes):
+    with pytest.raises(TypeError):
+        structure = {"bool": float}
+        deserialized = deserialize(json_str, structure)
+        assert_same_structure(structure, deserialized)
+        assert_correct_types(structure, deserialized)
+        assert deserialized["bool"] == True
 
 
 def test_deserialize_int(json_str: bytes):
@@ -49,12 +67,31 @@ def test_deserialize_int(json_str: bytes):
     assert deserialized["int"] == 3
 
 
+def test_deserialize_str_fail(json_str: bytes):
+    with pytest.raises(TypeError):
+        structure = {"int": str}
+        deserialized = deserialize(json_str, structure)
+        assert_same_structure(structure, deserialized)
+        assert_correct_types(structure, deserialized)
+        assert deserialized["int"] == 3
+
+
+
 def test_deserialize_float(json_str: bytes):
     structure = {"float": float}
     deserialized = deserialize(json_str, structure)
     assert_same_structure(structure, deserialized)
     assert_correct_types(structure, deserialized)
     assert deserialized["float"] == 0.34
+
+
+def test_deserialize_int_fail(json_str: bytes):
+    with pytest.raises(TypeError):
+        structure = {"float": int}
+        deserialized = deserialize(json_str, structure)
+        assert_same_structure(structure, deserialized)
+        assert_correct_types(structure, deserialized)
+        assert deserialized["float"] == 0.34
 
 
 def test_deserialize_float_array(json_str: bytes):
@@ -102,12 +139,22 @@ def test_nest(json_str: bytes):
 
 
 def test_nest_array(json_str: bytes):
-    structure = {"str": str, "nest": {"is_nest": bool, "stream3": np.int32}}
+    with pytest.raises(TypeError):
+        structure = {"str": str, "nest": {"is_nest": bool, "stream3": np.int32}}
+        deserialized = deserialize(json_str, structure)
+        print(type(deserialized), deserialized)
+        assert_same_structure(structure, deserialized)
+        assert_correct_types(structure, deserialized)
+        assert np.array_equal(deserialized["nest"]["stream3"], [[0, 28], [0, 9]])
+
+
+def test_nest_array(json_str: bytes):
+    structure = {"str": str, "nest": {"is_nest": bool, "stream4": np.int32}}
     deserialized = deserialize(json_str, structure)
     print(type(deserialized), deserialized)
     assert_same_structure(structure, deserialized)
     assert_correct_types(structure, deserialized)
-    assert np.array_equal(deserialized["nest"]["stream3"], [[0, 28], [0, 9]])
+    assert np.array_equal(deserialized["nest"]["stream4"], [[0, 28], [0, 9]])
 
 
 @pytest.fixture
@@ -127,8 +174,10 @@ def json_str() -> bytes:
         "nest":{
             "is_nest":true,
             "nestiness":0.9999,
-            "stream3":[[0,28],
-                       [0,9]],
+            "stream3":[[-0.11954010897451912,28],
+                       [0.21599243355210992,9]],
+            "stream4":[[0, 28],
+                       [0, 9]],
             "arr3":[true,false,true],
             "unused_key":"a"}}"""
     

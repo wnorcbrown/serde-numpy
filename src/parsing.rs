@@ -8,7 +8,7 @@ use numpy::IntoPyArray;
 use numpy::PyArray;
 use numpy::ndarray::Dim;
 
-use pyo3::exceptions::{PyValueError, PyIOError};
+use pyo3::exceptions::{PyValueError, PyTypeError};
 use pyo3::prelude::{Python, PyErr, PyResult, IntoPy, PyObject, ToPyObject};
 use pyo3::conversion::AsPyPointer;
 use pyo3::types::PyType;
@@ -18,7 +18,7 @@ mod parse_np_float;
 mod parse_np_int;
 
 use parse_np_float::{parse_float_array, to_f32, to_f64};
-use parse_np_int::{parse_int_array, to_i32, to_i64};
+use parse_np_int::{parse_int_array, to_i8, to_i16, to_i32, to_i64, to_i128};
 
 
 
@@ -99,7 +99,7 @@ pub fn parse_column_typed<'py>(py: Python<'py>, value: &Value, key: &str, index:
     // else if initial_value.is_string() {
     //     return parse_str_column(py, value, key, index)
     // }
-    Err(PyErr::new::<PyIOError, _>(format!("cannot parse column with dtype {:?}", dtype)))
+    Err(PyErr::new::<PyTypeError, _>(format!("cannot parse column with dtype {:?}", dtype)))
 }
 
 
@@ -110,7 +110,7 @@ pub fn parse_columns<'py>(py: Python<'py>, value: &Value, key: &str, indexes: Ve
             out.push(vector);
         }
         else {
-            return Err(PyErr::new::<PyIOError, _>(format!("cannot parse column at index {} for key {}", index, key)))
+            return Err(PyErr::new::<PyTypeError, _>(format!("cannot parse column at index {} for key {}", index, key)))
         }
     }
     Ok(out)
@@ -171,7 +171,7 @@ fn parse_str(py: Python, value: &Value) -> PyResult<PyObject> {
         Ok(string.into_py(py))
     }
     else {
-        Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type str", value)))
+        Err(PyErr::new::<PyTypeError, _>(format!("Unable to parse value: {:?} as type str", value)))
     }
 }
 
@@ -180,7 +180,7 @@ fn parse_bool(py: Python, value: &Value) -> PyResult<PyObject> {
         Ok(bool.into_py(py))
     }
     else {
-        Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type bool", value)))
+        Err(PyErr::new::<PyTypeError, _>(format!("Unable to parse value: {:?} as type bool", value)))
     }
 }
 
@@ -190,7 +190,7 @@ fn parse_int(py: Python, value: &Value) -> PyResult<PyObject> {
         Ok(int.into_py(py))
     }
     else {
-        Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type int", value)))
+        Err(PyErr::new::<PyTypeError, _>(format!("Unable to parse value: {:?} as type int", value)))
     }
 }
 
@@ -200,7 +200,7 @@ fn parse_float(py: Python, value: &Value) -> PyResult<PyObject> {
         Ok(float.into_py(py))
     }
     else {
-        Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type float", value)))
+        Err(PyErr::new::<PyTypeError, _>(format!("Unable to parse value: {:?} as type float", value)))
     }
 }
 
@@ -233,25 +233,31 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
     
     for (k, v) in structure {
         if let Structure::Type(t) = v {
-            let obj;
+            let result;
             if let Ok(type_name) = t.name() {
                 match type_name {
-                    "str" => {obj = parse_str(py, &value[&k])?;},
-                    "bool" => {obj = parse_bool(py, &value[&k])?;},
-                    "int" => {obj = parse_int(py, &value[&k])?;},
-                    "float" => {obj = parse_float(py, &value[&k])?;},
-                    "float32" => {obj = parse_float_array(py, &value[&k], &to_f32)?;},
-                    "float64" => {obj = parse_float_array(py, &value[&k], &to_f64)?;},
-                    "int32" => {obj = parse_int_array(py, &value[&k], &to_i32)?;},
-                    "int64" => {obj = parse_int_array(py, &value[&k], &to_i64)?;},
-                    _ => {return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", v)))}
+                    "str" => {result = parse_str(py, &value[&k]);},
+                    "bool" => {result = parse_bool(py, &value[&k]);},
+                    "int" => {result = parse_int(py, &value[&k]);},
+                    "float" => {result = parse_float(py, &value[&k]);},
+                    "float32" => {result = parse_float_array(py, &value[&k], &to_f32);},
+                    "float64" => {result = parse_float_array(py, &value[&k], &to_f64);},
+                    "int32" => {result = parse_int_array(py, &value[&k], &to_i32);},
+                    "int64" => {result = parse_int_array(py, &value[&k], &to_i64);},
+                    _ => return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", v)))
                 }
-                out.insert(k, OutStructure::Value(obj));
+                match result {
+                    Ok(obj) => {out.insert(k, OutStructure::Value(obj));},
+                    Err(err) => return Err(err)
+
+                }
             }
         }
         else if let Structure::Map(m) = v {
-            if let Ok(mapping) = deserialize(py, &value[&k], m) {
-                out.insert(k, OutStructure::Map(mapping));
+            let result =  deserialize(py, &value[&k], m);
+            match result {
+                Ok(mapping) => {out.insert(k, OutStructure::Map(mapping));},
+                Err(err) => return Err(err)
             }
         }
         else {

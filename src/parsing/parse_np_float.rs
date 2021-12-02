@@ -1,11 +1,16 @@
 use pyo3::{IntoPy, Python, PyObject};
 use serde_json::Value;
-use pyo3::prelude::{PyResult, PyErr};
-use pyo3::exceptions::{PyValueError, PyIOError};
-use ndarray::{Array2};
+
 use num_traits::identities::Zero;
+
 use numpy::{Element, IntoPyArray};
+use ndarray::{Array2};
+
+use pyo3::prelude::{PyResult, PyErr};
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::conversion::AsPyPointer;
+
+
 
 use crate::parsing::parse_utils::get_shape;
 
@@ -25,7 +30,7 @@ fn parse_float_0d<T>(py: Python, value: &Value, converter: &dyn Fn(f64) -> T) ->
         Ok(float.into_py(py))
     }
     else {
-        Err(PyErr::new::<PyIOError, _>(format!("Unable to parse value: {:?} as type np.float", value)))
+        Err(PyErr::new::<PyTypeError, _>(format!("Unable to parse value: {:?} as type np.float", value)))
     }
 }
 
@@ -37,7 +42,7 @@ fn parse_float_1d<T: Element>(py: Python, value: &Value, shape: Vec<usize>, conv
             out.push(converter(v));
         }
         else {
-            return Err(PyErr::new::<PyValueError, _>(format!("Found {:?} in json list, cannot convert to np.float", value[i])))
+            return Err(PyErr::new::<PyTypeError, _>(format!("Found {:?} in json list, cannot convert to np.float", value[i])))
         }
     }
     Ok(unsafe { PyObject::from_borrowed_ptr(py, out.into_pyarray(py).as_ptr())})
@@ -52,7 +57,7 @@ fn parse_float_2d<T: Element + Zero>(py:Python, value: &Value, shape: Vec<usize>
                 out[[i, j]] = converter(v);
             }
             else {
-                return Err(PyErr::new::<PyValueError, _>(format!("Found {:?} in json list, cannot convert to np.float", value[i][j])))
+                return Err(PyErr::new::<PyTypeError, _>(format!("Found {:?} in json list, cannot convert to np.float", value[i][j])))
             }
         }
     }
