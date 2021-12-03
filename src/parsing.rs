@@ -9,13 +9,13 @@ use numpy::PyArray;
 use numpy::ndarray::Dim;
 
 use pyo3::exceptions::{PyValueError, PyTypeError};
-use pyo3::prelude::{Python, PyErr, PyResult, IntoPy, PyObject, ToPyObject};
+use pyo3::prelude::{Python, PyErr, PyResult, IntoPy, PyObject};
 use pyo3::conversion::AsPyPointer;
 use pyo3::types::PyType;
 
 pub mod parse_utils;
 mod parse_np_array;
-use parse_np_array::{parse_array, to_f32, to_f64, to_i8, to_i16, to_i32, to_i64};
+use parse_np_array::parse_array;
 
 
 
@@ -225,17 +225,6 @@ impl IntoPy<PyObject> for OutStructure {
 
 
 
-fn value_as_f64(value: &Value) -> Option<f64> {
-    value.as_f64()
-}
-
-
-fn value_as_i64(value: &Value) -> Option<i64> {
-    value.as_i64()
-}
-
-
-
 pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<String, Structure>) -> PyResult<HashMap<String, OutStructure>> {
     let mut out: HashMap<String, OutStructure> = HashMap::new();
     
@@ -248,12 +237,21 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
                     "bool" => {result = parse_bool(py, &value[&k]);},
                     "int" => {result = parse_int(py, &value[&k]);},
                     "float" => {result = parse_float(py, &value[&k]);},
+
                     "float32" => {result = parse_array(py, &value[&k], &value_as_f64, &to_f32);},
-                    "float64" => {result = parse_array(py, &value[&k], &value_as_f64,&to_f64);},
+                    "float64" => {result = parse_array(py, &value[&k], &value_as_f64,&identity);},
+
                     "int8" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i8);},
                     "int16" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i16);},
                     "int32" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i32);},
-                    "int64" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i64);},
+                    "int64" => {result = parse_array(py, &value[&k], &value_as_i64,&identity);},
+
+                    "uint8" => {result = parse_array(py, &value[&k], &value_as_u64,&to_u8);},
+                    "uint16" => {result = parse_array(py, &value[&k], &value_as_u64,&to_u16);},
+                    "uint32" => {result = parse_array(py, &value[&k], &value_as_u64,&to_u32);},
+                    "uint64" => {result = parse_array(py, &value[&k], &value_as_u64,&identity);},
+
+                    // "bool_" => {result = parse_array(py, &value[&k], &value_as_bool,&identity);}
                     _ => return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", v)))
                 }
                 match result {
@@ -273,7 +271,63 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
         else {
             return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", v)))
         }
-        println!("{:?}", out);
     }
     Ok(out)
+}
+
+
+
+/// As Types:
+
+fn value_as_f64(value: &Value) -> Option<f64> {
+    value.as_f64()
+}
+
+fn value_as_i64(value: &Value) -> Option<i64> {
+    value.as_i64()
+}
+
+fn value_as_u64(value: &Value) -> Option<u64> {
+    value.as_u64()
+}
+
+fn value_as_bool(value: &Value) -> Option<bool> {
+    value.as_bool()
+}
+
+
+
+/// Converters:
+
+pub fn identity<T>(i: T) -> T {
+    i
+}
+
+pub fn to_f32(i: f64) -> f32 {
+    i as f32
+}
+
+
+pub fn to_i8(i: i64) -> i8 {
+    i as i8
+}
+
+pub fn to_i16(i: i64) -> i16 {
+    i as i16
+}
+
+pub fn to_i32(i: i64) -> i32 {
+    i as i32
+}
+
+pub fn to_u8(i: u64) -> u8 {
+    i as u8
+}
+
+pub fn to_u16(i: u64) -> u16 {
+    i as u16
+}
+
+pub fn to_u32(i: u64) -> u32 {
+    i as u32
 }

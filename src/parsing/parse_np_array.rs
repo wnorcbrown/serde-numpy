@@ -1,10 +1,10 @@
-use pyo3::{IntoPy, Python, PyObject};
+use pyo3::{Python, PyObject};
 use serde_json::Value;
 
 use num_traits::identities::Zero;
 
 use numpy::{Element, IntoPyArray};
-use ndarray::{Array0, Array1, Array2};
+use ndarray::{Array1, Array2};
 
 use pyo3::prelude::{PyResult, PyErr};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -13,34 +13,6 @@ use pyo3::conversion::AsPyPointer;
 
 
 use crate::parsing::parse_utils::get_shape;
-
-
-pub fn to_f32(i: f64) -> f32 {
-    i as f32
-}
-
-
-pub fn to_f64(i: f64) -> f64 {
-    i
-}
-
-pub fn to_i8(i: i64) -> i8 {
-    i as i8
-}
-
-
-pub fn to_i16(i: i64) -> i16 {
-    i as i16
-}
-
-
-pub fn to_i32(i: i64) -> i32 {
-    i as i32
-}
-
-pub fn to_i64(i: i64) -> i64 {
-    i
-}
 
 
 fn parse_1d<U, T: Element + Zero>(py:Python, value: &Value, shape: Vec<usize>, as_type: &dyn Fn(&Value) -> Option<U>, converter: &dyn Fn(U) -> T) -> PyResult<PyObject>

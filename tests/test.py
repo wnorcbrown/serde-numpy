@@ -76,7 +76,6 @@ def test_deserialize_str_fail(json_str: bytes):
         assert deserialized["int"] == 3
 
 
-
 def test_deserialize_float(json_str: bytes):
     structure = {"float": float}
     deserialized = deserialize(json_str, structure)
@@ -95,39 +94,33 @@ def test_deserialize_int_fail(json_str: bytes):
 
 
 def test_deserialize_float_array(json_str: bytes):
-    structure = {"float_arr": np.float32}
-    deserialized = deserialize(json_str, structure)
-    assert_same_structure(structure, deserialized)
-    assert_correct_types(structure, deserialized)
-    assert np.array_equal(deserialized["float_arr"], 
-                    np.array([[1.254439975231648,-0.6893827594332794],[-0.2922560025562806,0.5204819306523419]], np.float32))
-
-
-def test_deserialize_float_array2(json_str: bytes):
-    structure = {"float_arr": np.float64}
-    deserialized = deserialize(json_str, structure)
-    assert_same_structure(structure, deserialized)
-    assert_correct_types(structure, deserialized)
-    assert np.array_equal(deserialized["float_arr"], 
-                    np.array([[1.254439975231648,-0.6893827594332794],[-0.2922560025562806,0.5204819306523419]], np.float64))
+    for dtype in [np.float32, np.float64]:
+        structure = {"float_arr": dtype}
+        deserialized = deserialize(json_str, structure)
+        assert_same_structure(structure, deserialized)
+        assert_correct_types(structure, deserialized)
+        assert np.array_equal(deserialized["float_arr"], 
+                        np.array([[1.254439975231648,-0.6893827594332794],[-0.2922560025562806,0.5204819306523419]], dtype))
 
 
 def test_deserialize_int_array(json_str: bytes):
-    structure = {"int_arr": np.int32}
-    deserialized = deserialize(json_str, structure)
-    assert_same_structure(structure, deserialized)
-    assert_correct_types(structure, deserialized)
-    assert np.array_equal(deserialized["int_arr"], 
-                    np.array([[-100,-25],[-41,-62]], np.int32))
+    for dtype in [np.int8, np.int16, np.int32, np.int64]:
+        structure = {"int_arr": dtype}
+        deserialized = deserialize(json_str, structure)
+        assert_same_structure(structure, deserialized)
+        assert_correct_types(structure, deserialized)
+        assert np.array_equal(deserialized["int_arr"], 
+                        np.array([[-100,-25],[-41,-62]], dtype))
 
 
-def test_deserialize_int_array(json_str: bytes):
-    structure = {"int_arr": np.int64}
-    deserialized = deserialize(json_str, structure)
-    assert_same_structure(structure, deserialized)
-    assert_correct_types(structure, deserialized)
-    assert np.array_equal(deserialized["int_arr"], 
-                    np.array([[-100,-25],[-41,-62]], np.int64))
+def test_deserialize_uint_array(json_str: bytes):
+    for dtype in [np.uint8, np.uint16, np.uint32, np.uint64]:
+        structure = {"uint_arr": dtype}
+        deserialized = deserialize(json_str, structure)
+        assert_same_structure(structure, deserialized)
+        assert_correct_types(structure, deserialized)
+        assert np.array_equal(deserialized["uint_arr"], 
+                        np.array([[100,25],[41,62]], dtype))
 
 
 def test_nest(json_str: bytes):
@@ -166,6 +159,7 @@ def json_str() -> bytes:
         "float":0.34,
         "float_arr":[[1.254439975231648,-0.6893827594332794],[-0.2922560025562806,0.5204819306523419]],
         "int_arr":[[-100,-25],[-41,-62]],
+        "uint_arr":[[100, 25],[41, 62]],
         "stream1":[[-1.720294114558863,0.5990469735869592,0.0506514091042812,0.7204746283872987,1.5351637640639662],
                    [72,45,-58,-16,-14],[true,false,false,true,false]],
         "stream2":[[-2.1727126743596266,false,"a"],

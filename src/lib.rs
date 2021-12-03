@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use pyo3::prelude::{pymodule, PyModule, PyResult, Python, PyObject};
+use pyo3::prelude::{pymodule, PyModule, PyResult, Python};
 use::pyo3::PyErr;
 use::pyo3::exceptions::{PyIOError};
-use pyo3::types::PyType;
 
 mod parsing;
 use parsing::{parse_float_column, parse_bool_column, parse_int_column, parse_keys, deserialize, Structure, OutStructure};
