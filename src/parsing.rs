@@ -7,28 +7,11 @@ use pyo3::exceptions::{PyValueError, PyTypeError};
 use pyo3::prelude::{Python, PyErr, PyResult, IntoPy, PyObject};
 use pyo3::types::PyType;
 
-pub mod parse_utils;
+mod parse_utils;
 mod parse_np_array;
+mod parse_py_list;
 use parse_np_array::parse_array;
-
-
-fn parse_str(py: Python, value: &Value) -> PyResult<PyObject> {
-    if let Some(string) = value.as_str() {
-        Ok(string.into_py(py))
-    }
-    else {
-        Err(PyErr::new::<PyTypeError, _>(format!("Unable to parse value: {:?} as type str", value)))
-    }
-}
-
-fn parse_bool(py: Python, value: &Value) -> PyResult<PyObject> {
-    if let Some(bool) = value.as_bool() {
-        Ok(bool.into_py(py))
-    }
-    else {
-        Err(PyErr::new::<PyTypeError, _>(format!("Unable to parse value: {:?} as type bool", value)))
-    }
-}
+use parse_py_list::parse_list;
 
 
 #[derive(FromPyObject)]
@@ -59,10 +42,10 @@ impl IntoPy<PyObject> for OutStructure {
 
 fn get_py_object(py: Python, value: &Value, type_name: &str) -> PyResult<PyObject> {
     match type_name {
-        "str" => parse_str(py, &value),
-        "bool" => parse_bool(py, &value),
-        "int" => parse_array(py, &value, &value_as_i64, &identity),
-        "float" => parse_array(py, &value, &value_as_f64, &identity),
+        "str" => parse_list(py, &value, &value_as_str),
+        "bool" => parse_list(py, &value, &value_as_bool),
+        "int" => parse_list(py, &value, &value_as_i64),
+        "float" => parse_list(py, &value, &value_as_f64),
 
         "float32" => parse_array(py, &value, &value_as_f64, &to_f32),
         "float64" => parse_array(py, &value, &value_as_f64,&identity),
@@ -142,6 +125,13 @@ fn value_as_u64(value: &Value) -> Option<u64> {
 
 fn value_as_bool(value: &Value) -> Option<bool> {
     value.as_bool()
+}
+
+fn value_as_str(value: &Value) -> Option<String> {
+    if let Some(slice) = value.as_str() {
+        return Some(String::from(slice))
+    }
+    None
 }
 
 
