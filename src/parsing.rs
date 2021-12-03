@@ -205,12 +205,14 @@ fn parse_float(py: Python, value: &Value) -> PyResult<PyObject> {
 #[derive(Debug)]
 pub enum Structure <'py> {
     Type(&'py PyType),
+    List(Vec<&'py PyType>),
     Map(HashMap<String, Structure<'py>>)
 }
 
 #[derive(Debug)]
 pub enum OutStructure {
     Value(PyObject),
+    List(Vec<PyObject>),
     Map(HashMap<String, OutStructure>)
 }
 
@@ -218,8 +220,35 @@ impl IntoPy<PyObject> for OutStructure {
     fn into_py(self, py: Python) -> PyObject {
         match self {
             OutStructure::Value(v) => v.into_py(py),
+            OutStructure::List(v) => v.into_py(py),
             OutStructure::Map(v) => v.into_py(py),
         }
+    }
+}
+
+
+fn get_py_object(py: Python, value: &Value, type_name: &str) -> PyResult<PyObject> {
+    match type_name {
+        "str" => parse_str(py, &value),
+        "bool" => parse_bool(py, &value),
+        "int" => parse_int(py, &value),
+        "float" => parse_float(py, &value),
+
+        "float32" => parse_array(py, &value, &value_as_f64, &to_f32),
+        "float64" => parse_array(py, &value, &value_as_f64,&identity),
+
+        "int8" => parse_array(py, &value, &value_as_i64,&to_i8),
+        "int16" => parse_array(py, &value, &value_as_i64,&to_i16),
+        "int32" => parse_array(py, &value, &value_as_i64,&to_i32),
+        "int64" => parse_array(py, &value, &value_as_i64,&identity),
+
+        "uint8" => parse_array(py, &value, &value_as_u64,&to_u8),
+        "uint16" => parse_array(py, &value, &value_as_u64,&to_u16),
+        "uint32" => parse_array(py, &value, &value_as_u64,&to_u32),
+        "uint64" => parse_array(py, &value, &value_as_u64,&identity),
+
+        // "bool_" => {result = parse_array(py, &value[&k], &value_as_bool,&identity);}
+        _ => return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", type_name)))
     }
 }
 
@@ -230,36 +259,26 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
     
     for (k, v) in structure {
         if let Structure::Type(t) = v {
-            let result;
             if let Ok(type_name) = t.name() {
-                match type_name {
-                    "str" => {result = parse_str(py, &value[&k]);},
-                    "bool" => {result = parse_bool(py, &value[&k]);},
-                    "int" => {result = parse_int(py, &value[&k]);},
-                    "float" => {result = parse_float(py, &value[&k]);},
-
-                    "float32" => {result = parse_array(py, &value[&k], &value_as_f64, &to_f32);},
-                    "float64" => {result = parse_array(py, &value[&k], &value_as_f64,&identity);},
-
-                    "int8" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i8);},
-                    "int16" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i16);},
-                    "int32" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i32);},
-                    "int64" => {result = parse_array(py, &value[&k], &value_as_i64,&identity);},
-
-                    "uint8" => {result = parse_array(py, &value[&k], &value_as_u64,&to_u8);},
-                    "uint16" => {result = parse_array(py, &value[&k], &value_as_u64,&to_u16);},
-                    "uint32" => {result = parse_array(py, &value[&k], &value_as_u64,&to_u32);},
-                    "uint64" => {result = parse_array(py, &value[&k], &value_as_u64,&identity);},
-
-                    // "bool_" => {result = parse_array(py, &value[&k], &value_as_bool,&identity);}
-                    _ => return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", v)))
-                }
+               let result = get_py_object(py, &value[&k], type_name);
                 match result {
                     Ok(obj) => {out.insert(k, OutStructure::Value(obj));},
                     Err(err) => return Err(err)
 
                 }
             }
+        }
+        else if let Structure::List(m) = v {
+            let mut objects = Vec::new();
+            for (i, &t) in m.iter().enumerate() {
+                if let Ok(type_name) = t.name() {
+                    match get_py_object(py, &value[&k][i], type_name) {
+                        Ok(obj) => {objects.push(obj);}
+                        Err(err) => return Err(err)
+                    }
+                }
+            }
+            out.insert(k, OutStructure::List(objects));
         }
         else if let Structure::Map(m) = v {
             let result =  deserialize(py, &value[&k], m);

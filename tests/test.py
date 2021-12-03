@@ -1,5 +1,6 @@
 import pytest
 
+from typing import Any
 import numpy as np
 from serde_numpy import deserialize
 
@@ -11,14 +12,25 @@ def assert_same_structure(dict_1: dict, dict_2: dict):
             assert_same_structure(v, dict_2[k])
 
 
+def _get_type(object_: Any) -> type:
+    if isinstance(object_, np.ndarray):
+        return object_.dtype
+    elif isinstance(object_, np.dtype) or isinstance(object_, type):
+        return object_
+    else:
+        return type(object_)
+
+
 def assert_correct_types(structure: dict, deserialized: dict):
     for k, v in structure.items():
-        if type(v) is not dict:
-            if not isinstance(deserialized[k], np.ndarray):
-                assert v == type(deserialized[k]), f"Deserialized type: {v}  Actual type: {type(deserialized[k])}"
-            else:
-                assert v == deserialized[k].dtype
-
+        type_s = _get_type(v)
+        type_d = _get_type(deserialized[k])
+        assert type_s == type_d
+        if type_s is dict:
+            assert_correct_types(v, deserialized[k])
+        elif type_s is list:
+            assert all((_get_type(d) == _get_type(s) for s, d in zip(v, deserialized[k])))
+            
 
 def test_parses(json_str: bytes):
     import orjson
@@ -150,6 +162,17 @@ def test_nest_array(json_str: bytes):
     assert np.array_equal(deserialized["nest"]["stream4"], [[0, 28], [0, 9]])
 
 
+def test_list_of_array(json_str: bytes):
+    structure = {"stream0": [np.float64, np.int16, np.uint8]}
+    deserialized = deserialize(json_str, structure)
+    print(type(deserialized), deserialized)
+    assert_same_structure(structure, deserialized)
+    assert_correct_types(structure, deserialized)
+    assert np.array_equal(deserialized["stream0"], [[-1.720294114558863,0.5990469735869592,0.0506514091042812,0.7204746283872987,1.5351637640639662],
+                                                    [72,45,-58,-16,-14],
+                                                    [1,0,0,1,0]])
+
+
 @pytest.fixture
 def json_str() -> bytes:
     return b"""{
@@ -160,8 +183,12 @@ def json_str() -> bytes:
         "float_arr":[[1.254439975231648,-0.6893827594332794],[-0.2922560025562806,0.5204819306523419]],
         "int_arr":[[-100,-25],[-41,-62]],
         "uint_arr":[[100, 25],[41, 62]],
+        "stream0":[[-1.720294114558863,0.5990469735869592,0.0506514091042812,0.7204746283872987,1.5351637640639662],
+                   [72,45,-58,-16,-14],
+                   [1,0,0,1,0]],
         "stream1":[[-1.720294114558863,0.5990469735869592,0.0506514091042812,0.7204746283872987,1.5351637640639662],
-                   [72,45,-58,-16,-14],[true,false,false,true,false]],
+                   [72,45,-58,-16,-14],
+                   [true,false,false,true,false]],
         "stream2":[[-2.1727126743596266,false,"a"],
                    [-0.06389102863189458,true,"b"],
                    [1.3716941547285826,true,"c"]],

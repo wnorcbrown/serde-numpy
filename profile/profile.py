@@ -52,7 +52,7 @@ def run_profile(n_rows: int, n_cols: int, dtypes: Sequence[Type] = (np.int32, np
     print("-"*75)
     print(f"{name} data times for orjson:: Mean: {np.mean(times_orjson):.3} Std: {np.std(times_orjson):.3}")
     print(f"{name} data times for serde numpy:: Mean: {np.mean(times_serde_numpy):.3} Std: {np.std(times_serde_numpy):.3}")
-    print(f"Speed up serde_numpy vs. orjson: {np.mean(times_orjson)/np.mean(times_serde_numpy):.3}")
+    print(f"Speed up serde_numpy vs. orjson: {np.mean(times_orjson)/np.mean(times_serde_numpy):.3}x")
     print("-"*75)
     
 if __name__ == "__main__":
