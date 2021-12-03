@@ -14,11 +14,8 @@ use pyo3::conversion::AsPyPointer;
 use pyo3::types::PyType;
 
 pub mod parse_utils;
-mod parse_np_float;
-mod parse_np_int;
-
-use parse_np_float::{parse_float_array, to_f32, to_f64};
-use parse_np_int::{parse_int_array, to_i8, to_i16, to_i32, to_i64, to_i128};
+mod parse_np_array;
+use parse_np_array::{parse_array, to_f32, to_f64, to_i8, to_i16, to_i32, to_i64};
 
 
 
@@ -228,6 +225,17 @@ impl IntoPy<PyObject> for OutStructure {
 
 
 
+fn value_as_f64(value: &Value) -> Option<f64> {
+    value.as_f64()
+}
+
+
+fn value_as_i64(value: &Value) -> Option<i64> {
+    value.as_i64()
+}
+
+
+
 pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<String, Structure>) -> PyResult<HashMap<String, OutStructure>> {
     let mut out: HashMap<String, OutStructure> = HashMap::new();
     
@@ -240,10 +248,12 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
                     "bool" => {result = parse_bool(py, &value[&k]);},
                     "int" => {result = parse_int(py, &value[&k]);},
                     "float" => {result = parse_float(py, &value[&k]);},
-                    "float32" => {result = parse_float_array(py, &value[&k], &to_f32);},
-                    "float64" => {result = parse_float_array(py, &value[&k], &to_f64);},
-                    "int32" => {result = parse_int_array(py, &value[&k], &to_i32);},
-                    "int64" => {result = parse_int_array(py, &value[&k], &to_i64);},
+                    "float32" => {result = parse_array(py, &value[&k], &value_as_f64, &to_f32);},
+                    "float64" => {result = parse_array(py, &value[&k], &value_as_f64,&to_f64);},
+                    "int8" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i8);},
+                    "int16" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i16);},
+                    "int32" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i32);},
+                    "int64" => {result = parse_array(py, &value[&k], &value_as_i64,&to_i64);},
                     _ => return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", v)))
                 }
                 match result {

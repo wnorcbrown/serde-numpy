@@ -4,7 +4,7 @@ use serde_json::Value;
 use num_traits::identities::Zero;
 
 use numpy::{Element, IntoPyArray};
-use ndarray::{Array2};
+use ndarray::{Array0, Array1, Array2};
 
 use pyo3::prelude::{PyResult, PyErr};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -24,22 +24,31 @@ pub fn to_f64(i: f64) -> f64 {
     i
 }
 
-
-fn parse_float_0d<T>(py: Python, value: &Value, converter: &dyn Fn(f64) -> T) -> PyResult<PyObject> {
-    if let Some(float) = value.as_f64() {
-        Ok(float.into_py(py))
-    }
-    else {
-        Err(PyErr::new::<PyTypeError, _>(format!("Unable to parse value: {:?} as type np.float", value)))
-    }
+pub fn to_i8(i: i64) -> i8 {
+    i as i8
 }
 
 
-fn parse_float_1d<T: Element>(py: Python, value: &Value, shape: Vec<usize>, converter: &dyn Fn(f64) -> T) -> PyResult<PyObject> {
-    let mut out: Vec<T> = Vec::new();
+pub fn to_i16(i: i64) -> i16 {
+    i as i16
+}
+
+
+pub fn to_i32(i: i64) -> i32 {
+    i as i32
+}
+
+pub fn to_i64(i: i64) -> i64 {
+    i
+}
+
+
+fn parse_1d<U, T: Element + Zero>(py:Python, value: &Value, shape: Vec<usize>, as_type: &dyn Fn(&Value) -> Option<U>, converter: &dyn Fn(U) -> T) -> PyResult<PyObject>
+{
+    let mut out = Array1::<T>::zeros(shape[0]);
     for i in 0..shape[0] {
-        if let Some(v) = value[i].as_f64() {
-            out.push(converter(v));
+        if let Some(v) = as_type(&value[i]) {
+            out[i] = converter(v);
         }
         else {
             return Err(PyErr::new::<PyTypeError, _>(format!("Found {:?} in json list, cannot convert to np.float", value[i])))
@@ -49,11 +58,16 @@ fn parse_float_1d<T: Element>(py: Python, value: &Value, shape: Vec<usize>, conv
 }
 
 
-fn parse_float_2d<T: Element + Zero>(py:Python, value: &Value, shape: Vec<usize>, converter: &dyn Fn(f64) -> T) -> PyResult<PyObject> {
+fn parse_2d<U, T: Element + Zero>(py:Python, 
+                                  value: &Value, 
+                                  shape: Vec<usize>, 
+                                     as_type: &dyn Fn(&Value) -> Option<U>, 
+                                     converter: &dyn Fn(U) -> T) -> PyResult<PyObject>
+{
     let mut out = Array2::<T>::zeros((shape[0], shape[1]));
     for i in 0..shape[0] {
         for j in 0..shape[1] {
-            if let Some(v) = value[i][j].as_f64(){
+            if let Some(v) = as_type(&value[i][j]){
                 out[[i, j]] = converter(v);
             }
             else {
@@ -65,12 +79,12 @@ fn parse_float_2d<T: Element + Zero>(py:Python, value: &Value, shape: Vec<usize>
 }
 
 
-pub fn parse_float_array<T: Element + Zero>(py: Python, value: &Value, converter: &dyn Fn(f64) -> T) -> PyResult<PyObject> {
+pub fn parse_array<U, T: Element + Zero>(py: Python, value: &Value, as_type: &dyn Fn(&Value) -> Option<U>, converter: &dyn Fn(U) -> T) -> PyResult<PyObject> {
     let shape = get_shape(value);
     match shape.len() {
-        0 => parse_float_0d(py, value, &converter),
-        1 => parse_float_1d(py, value, shape, &converter),
-        2 => parse_float_2d(py, value, shape, &converter),
+        // 0 => parse_0d(py, value, as_type, &converter),
+        1 => parse_1d(py, value, shape, &as_type, &converter),
+        2 => parse_2d(py, value, shape, &as_type, &converter),
         _ => Err(PyErr::new::<PyValueError, _>(format!("{}-d array not currently supported", shape.len())))
     }
 }
