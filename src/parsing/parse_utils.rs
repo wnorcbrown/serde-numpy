@@ -15,4 +15,3 @@ pub fn get_shape(value: &Value) -> Vec<usize> {
     get_shape_helper(value, Vec::new())
 }
 
-
