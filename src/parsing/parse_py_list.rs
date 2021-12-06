@@ -40,10 +40,10 @@ fn parse_1d<U: IntoPy<PyObject>>(py: Python,
 
 
 fn parse_2d<U: IntoPy<PyObject>>(py: Python, 
-                                  value: &Value, 
-                                  shape: Vec<usize>, 
-                                  as_type: &dyn Fn(&Value) -> Option<U>, 
-                                 ) -> PyResult<PyObject> {
+                                 value: &Value, 
+                                 shape: Vec<usize>, 
+                                 as_type: &dyn Fn(&Value) -> Option<U>, 
+                                ) -> PyResult<PyObject> {
     let mut out = Vec::new();
     for i in 0..shape[0] {
         let mut row = Vec::new();

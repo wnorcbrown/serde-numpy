@@ -19,6 +19,7 @@ use parse_py_list::parse_list;
 pub enum Structure <'py> {
     Type(&'py PyType),
     List(Vec<&'py PyType>),
+    ListofList(Vec<Vec<&'py PyType>>),
     Map(HashMap<String, Structure<'py>>)
 }
 
@@ -40,25 +41,25 @@ impl IntoPy<PyObject> for OutStructure {
 }
 
 
-fn get_py_object(py: Python, value: &Value, type_name: &str) -> PyResult<PyObject> {
+fn get_py_object(py: Python, value: &Value, type_name: &str, opt_column_selector: Option<usize>) -> PyResult<PyObject> {
     match type_name {
         "str" => parse_list(py, &value, &value_as_str),
         "bool" => parse_list(py, &value, &value_as_bool),
         "int" => parse_list(py, &value, &value_as_i64),
         "float" => parse_list(py, &value, &value_as_f64),
 
-        "float32" => parse_array(py, &value, &value_as_f64, &to_f32),
-        "float64" => parse_array(py, &value, &value_as_f64,&identity),
+        "float32" => parse_array(py, &value, &value_as_f64, &to_f32, opt_column_selector),
+        "float64" => parse_array(py, &value, &value_as_f64,&identity, opt_column_selector),
 
-        "int8" => parse_array(py, &value, &value_as_i64,&to_i8),
-        "int16" => parse_array(py, &value, &value_as_i64,&to_i16),
-        "int32" => parse_array(py, &value, &value_as_i64,&to_i32),
-        "int64" => parse_array(py, &value, &value_as_i64,&identity),
+        "int8" => parse_array(py, &value, &value_as_i64,&to_i8, opt_column_selector),
+        "int16" => parse_array(py, &value, &value_as_i64,&to_i16, opt_column_selector),
+        "int32" => parse_array(py, &value, &value_as_i64,&to_i32, opt_column_selector),
+        "int64" => parse_array(py, &value, &value_as_i64,&identity, opt_column_selector),
 
-        "uint8" => parse_array(py, &value, &value_as_u64,&to_u8),
-        "uint16" => parse_array(py, &value, &value_as_u64,&to_u16),
-        "uint32" => parse_array(py, &value, &value_as_u64,&to_u32),
-        "uint64" => parse_array(py, &value, &value_as_u64,&identity),
+        "uint8" => parse_array(py, &value, &value_as_u64,&to_u8, opt_column_selector),
+        "uint16" => parse_array(py, &value, &value_as_u64,&to_u16, opt_column_selector),
+        "uint32" => parse_array(py, &value, &value_as_u64,&to_u32, opt_column_selector),
+        "uint64" => parse_array(py, &value, &value_as_u64,&identity, opt_column_selector),
 
         // "bool_" => parse_array(py, &value, &value_as_bool,&identity),
         _ => return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", type_name)))
@@ -73,7 +74,7 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
     for (k, v) in structure {
         if let Structure::Type(t) = v {
             if let Ok(type_name) = t.name() {
-               let result = get_py_object(py, &value[&k], type_name);
+               let result = get_py_object(py, &value[&k], type_name, None);
                 match result {
                     Ok(obj) => {out.insert(k, OutStructure::Value(obj));},
                     Err(err) => return Err(err)
@@ -85,7 +86,19 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
             let mut objects = Vec::new();
             for (i, &t) in m.iter().enumerate() {
                 if let Ok(type_name) = t.name() {
-                    match get_py_object(py, &value[&k][i], type_name) {
+                    match get_py_object(py, &value[&k][i], type_name, None) {
+                        Ok(obj) => {objects.push(obj);}
+                        Err(err) => return Err(err)
+                    }
+                }
+            }
+            out.insert(k, OutStructure::List(objects));
+        }
+        else if let Structure::ListofList(m) = v {
+            let mut objects = Vec::new();
+            for (i, &t) in m[0].iter().enumerate() {
+                if let Ok(type_name) = t.name() {
+                    match get_py_object(py, &value[&k], type_name, Some(i)) {
                         Ok(obj) => {objects.push(obj);}
                         Err(err) => return Err(err)
                     }
