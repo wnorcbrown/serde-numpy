@@ -24,16 +24,19 @@ def _get_type(object_: Any) -> type:
 def assert_correct_types(structure: dict, deserialized: dict):
     for k, v in structure.items():
         type_s = _get_type(v)
-        type_d = _get_type(deserialized[k])
-        assert type_s == type_d
+        type_d = _get_type(deserialized[k]) 
         if type_s is dict:
+            assert type_s == type_d
             assert_correct_types(v, deserialized[k])
         elif type_s is list:
-            if _get_type(v[0]) != list:
-                assert all((_get_type(d) == _get_type(s) for s, d in zip(v, deserialized[k])))
-            else:
+            if _get_type(v[0]) == list:
                 # [[Type, ...]] for parsing list of lists stored row-wise
                 assert all((_get_type(d) == _get_type(s) for s, d in zip(v[0], deserialized[k])))
+            elif _get_type(v[0]) == dict:
+                # [{key: Type, ...}] for parsing list of dict stored row-wise
+                assert_correct_types(v[0], deserialized[k])
+            else:
+                assert all((_get_type(d) == _get_type(s) for s, d in zip(v, deserialized[k])))
             
 
 def test_parses(json_str: bytes):
@@ -149,21 +152,21 @@ def test_nest(json_str: bytes):
 
 def test_nest_array(json_str: bytes):
     with pytest.raises(TypeError):
-        structure = {"str": str, "nest": {"is_nest": bool, "stream3": np.int32}}
+        structure = {"str": str, "nest": {"is_nest": bool, "stream0": np.int32}}
         deserialized = deserialize(json_str, structure)
         print(type(deserialized), deserialized)
         assert_same_structure(structure, deserialized)
         assert_correct_types(structure, deserialized)
-        assert np.array_equal(deserialized["nest"]["stream3"], [[0, 28], [0, 9]])
+        assert np.array_equal(deserialized["nest"]["stream0"], [[0, 28], [0, 9]])
 
 
 def test_nest_array(json_str: bytes):
-    structure = {"str": str, "nest": {"is_nest": bool, "stream4": np.int32}}
+    structure = {"str": str, "nest": {"is_nest": bool, "stream1": np.int32}}
     deserialized = deserialize(json_str, structure)
     print(type(deserialized), deserialized)
     assert_same_structure(structure, deserialized)
     assert_correct_types(structure, deserialized)
-    assert np.array_equal(deserialized["nest"]["stream4"], [[0, 28], [0, 9]])
+    assert np.array_equal(deserialized["nest"]["stream1"], [[0, 28], [0, 9]])
 
 
 def test_list_of_array(json_str: bytes):
@@ -182,9 +185,15 @@ def test_column_parsing(json_str: bytes):
     print(type(deserialized), deserialized)
     assert_same_structure(structure, deserialized)
     assert_correct_types(structure, deserialized)
-    # assert np.array_equal(deserialized["stream3"], [[-2.1727126743596266,0,1],
-    #                [-0.06389102863189458,1,2],
-    #                [1.3716941547285826,1,3]])
+
+
+def test_column_parsing(json_str: bytes):
+    structure = {"stream4": [{"x": np.float64, "y": np.uint8, "z": np.uint8}]}
+    deserialized = deserialize(json_str, structure)
+    print(type(deserialized), deserialized)
+    assert_same_structure(structure, deserialized)
+    assert_correct_types(structure, deserialized)
+
 
 
 @pytest.fixture
@@ -209,12 +218,15 @@ def json_str() -> bytes:
         "stream3":[[-2.1727126743596266,0,1],
                    [-0.06389102863189458,1,2],
                    [1.3716941547285826,1,3]],
+        "stream4":[{"x":-2.1727126743596266,"y":0,"z":1},
+                   {"x":-0.06389102863189458,"y":1,"z":2},
+                   {"x":1.3716941547285826,"y":1,"z":3}],
         "nest":{
             "is_nest":true,
             "nestiness":0.9999,
-            "stream3":[[-0.11954010897451912,28],
+            "stream0":[[-0.11954010897451912,28],
                        [0.21599243355210992,9]],
-            "stream4":[[0, 28],
+            "stream1":[[0, 28],
                        [0, 9]],
             "arr3":[true,false,true],
             "unused_key":"a"}}"""

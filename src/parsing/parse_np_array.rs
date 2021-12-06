@@ -1,5 +1,6 @@
 use pyo3::{IntoPy, PyObject, Python};
 use serde_json::Value;
+use serde_json::value::Index;
 
 use num_traits::identities::Zero;
 
@@ -13,15 +14,15 @@ use pyo3::conversion::AsPyPointer;
 use crate::parsing::parse_utils::get_shape;
 
 
-fn parse_0d<U: IntoPy<PyObject>>(py: Python, 
+fn parse_0d<U: IntoPy<PyObject>, I: Index>(py: Python, 
                                  value: &Value, 
                                  as_type: &dyn Fn(&Value) -> Option<U>,
-                                 opt_column_selector: Option<usize>,
+                                 opt_column_selector: Option<I>,
                                 ) -> PyResult<PyObject> {
     let element;
     match opt_column_selector {
         None => {element = value;},
-        Some(column_selector) => {element = &value[column_selector];}
+        Some(ref column_selector) => {element = &value[column_selector];}
     }
     if let Some(out) = as_type(element) {
         Ok(out.into_py(py))
@@ -32,19 +33,20 @@ fn parse_0d<U: IntoPy<PyObject>>(py: Python,
 }
 
 
-fn parse_1d<U, T: Element + Zero>(py: Python, 
+fn parse_1d<U, T: Element + Zero, I: Index>(py: Python, 
                                   value: &Value, 
                                   shape: Vec<usize>, 
                                   as_type: &dyn Fn(&Value) -> Option<U>, 
                                   converter: &dyn Fn(U) -> T,
-                                  opt_column_selector: Option<usize>,
+                                  opt_column_selector: Option<I>,
                                  ) -> PyResult<PyObject> {
     let mut out = Array1::<T>::zeros(shape[0]);
     for i in 0..shape[0] {
         let element;
+        
         match opt_column_selector {
             None => {element = &value[i];},
-            Some(column_selector) => {element = &value[i][column_selector];}
+            Some(ref column_selector) => {element = &value[i][column_selector];}
         }
         if let Some(v) = as_type(element) {
             out[i] = converter(v);
@@ -78,26 +80,17 @@ fn parse_2d<U, T: Element + Zero>(py: Python,
 }
 
 
-pub fn parse_array<U: IntoPy<PyObject>, T: Element + Zero>(py: Python, 
+pub fn parse_array<U: IntoPy<PyObject>, T: Element + Zero, I: Index>(py: Python, 
                                                            value: &Value, 
                                                            as_type: &dyn Fn(&Value) -> Option<U>, 
                                                            converter: &dyn Fn(U) -> T,
-                                                           opt_column_selector: Option<usize>,
+                                                           opt_column_selector: Option<I>,
                                                           ) -> PyResult<PyObject> {
-    let shape = get_shape(value);
-    if let Some(_) = opt_column_selector {
-        match shape.len() {
-            1 => parse_0d(py, value, &as_type, opt_column_selector),
-            2 => parse_1d(py, value, shape, &as_type, &converter, opt_column_selector),
-            _ => Err(PyErr::new::<PyValueError, _>(format!("{}-d array not currently supported", shape.len())))
-        }
-    }
-    else {
-        match shape.len() {
-            0 => parse_0d(py, value, &as_type, None),
-            1 => parse_1d(py, value, shape, &as_type, &converter, None),
-            2 => parse_2d(py, value, shape, &as_type, &converter),
-            _ => Err(PyErr::new::<PyValueError, _>(format!("{}-d array not currently supported", shape.len())))
-        }
+    let shape = get_shape(value, &opt_column_selector);
+    match shape.len() {
+        0 => parse_0d(py, value, &as_type, opt_column_selector),
+        1 => parse_1d(py, value, shape, &as_type, &converter, opt_column_selector),
+        2 => parse_2d(py, value, shape, &as_type, &converter),
+        _ => Err(PyErr::new::<PyValueError, _>(format!("{}-d array not currently supported", shape.len())))
     }
 }

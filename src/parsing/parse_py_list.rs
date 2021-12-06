@@ -3,7 +3,6 @@ use serde_json::Value;
 
 use pyo3::prelude::{PyResult, PyErr};
 use pyo3::exceptions::{PyTypeError, PyValueError};
-use pyo3::conversion::AsPyPointer;
 
 use crate::parsing::parse_utils::get_shape;
 
@@ -62,7 +61,7 @@ fn parse_2d<U: IntoPy<PyObject>>(py: Python,
 
 
 pub fn parse_list<U: IntoPy<PyObject>>(py: Python, value: &Value, as_type: &dyn Fn(&Value) -> Option<U>) -> PyResult<PyObject> {
-    let shape = get_shape(value);
+    let shape = get_shape(value, &None::<usize>);
     match shape.len() {
         0 => parse_0d(py, value, &as_type),
         1 => parse_1d(py, value, shape, &as_type),

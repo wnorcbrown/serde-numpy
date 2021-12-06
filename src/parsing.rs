@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use pyo3::FromPyObject;
 use serde_json::Value;
+use serde_json::value::Index;
 
-use pyo3::exceptions::{PyValueError, PyTypeError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{Python, PyErr, PyResult, IntoPy, PyObject};
 use pyo3::types::PyType;
 
@@ -20,6 +21,7 @@ pub enum Structure <'py> {
     Type(&'py PyType),
     List(Vec<&'py PyType>),
     ListofList(Vec<Vec<&'py PyType>>),
+    ListofMap(Vec<HashMap<String, &'py PyType>>),
     Map(HashMap<String, Structure<'py>>)
 }
 
@@ -41,7 +43,7 @@ impl IntoPy<PyObject> for OutStructure {
 }
 
 
-fn get_py_object(py: Python, value: &Value, type_name: &str, opt_column_selector: Option<usize>) -> PyResult<PyObject> {
+fn get_py_object<I: Index>(py: Python, value: &Value, type_name: &str, opt_column_selector: Option<I>) -> PyResult<PyObject> {
     match type_name {
         "str" => parse_list(py, &value, &value_as_str),
         "bool" => parse_list(py, &value, &value_as_bool),
@@ -74,7 +76,7 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
     for (k, v) in structure {
         if let Structure::Type(t) = v {
             if let Ok(type_name) = t.name() {
-               let result = get_py_object(py, &value[&k], type_name, None);
+               let result = get_py_object(py, &value[&k], type_name, None::<usize>);
                 match result {
                     Ok(obj) => {out.insert(k, OutStructure::Value(obj));},
                     Err(err) => return Err(err)
@@ -86,7 +88,7 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
             let mut objects = Vec::new();
             for (i, &t) in m.iter().enumerate() {
                 if let Ok(type_name) = t.name() {
-                    match get_py_object(py, &value[&k][i], type_name, None) {
+                    match get_py_object(py, &value[&k][i], type_name, None::<usize>) {
                         Ok(obj) => {objects.push(obj);}
                         Err(err) => return Err(err)
                     }
@@ -105,6 +107,18 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
                 }
             }
             out.insert(k, OutStructure::List(objects));
+        }
+        else if let Structure::ListofMap(m) = v {
+            let mut objects: HashMap<String, OutStructure> = HashMap::new();
+            for (i, &t) in &m[0] {
+                if let Ok(type_name) = t.name() {
+                    match get_py_object(py, &value[&k], type_name, Some(&i)) {
+                        Ok(obj) => {objects.insert(i.to_string(), OutStructure::Value(obj));}
+                        Err(err) => return Err(err)
+                    }
+                }
+            }
+            out.insert(k, OutStructure::Map(objects));
         }
         else if let Structure::Map(m) = v {
             let result =  deserialize(py, &value[&k], m);
