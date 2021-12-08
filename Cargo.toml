@@ -14,7 +14,6 @@ numpy = "0.15" # rust-numpy
 ndarray = "0.15"
 serde_json = "1.0"
 itertools = "0.7.8"
-num-traits = "0.2.14"
 
 [dependencies.pyo3]
 version = "0.15"

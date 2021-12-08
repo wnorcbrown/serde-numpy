@@ -41,7 +41,7 @@ def assert_correct_types(structure: dict, deserialized: dict):
             # [{key: Type, ...}] for parsing list of dict stored row-wise
             elif _get_type(v[0]) == dict:
                 assert_correct_types(v[0], deserialized[k])
-                
+
             # [Type, ...] for parsing list of lists stored row-wise
             else:
                 for s, d in zip(v, deserialized[k]):
@@ -154,6 +154,15 @@ def test_deserialize_uint_array(json_str: bytes):
                         np.array([[100,25],[41,62]], dtype))
 
 
+def test_deserialize_bool_array(json_str: bytes):
+    structure = {"bool_arr": np.bool_}
+    deserialized = deserialize(json_str, structure)
+    assert_same_structure(structure, deserialized)
+    assert_correct_types(structure, deserialized)
+    assert np.array_equal(deserialized["bool_arr"], 
+                    np.array([[False, True],[True, False]], np.bool_))
+
+
 def test_nest(json_str: bytes):
     structure = {"str": str, "nest": {"is_nest": bool}}
     deserialized = deserialize(json_str, structure)
@@ -193,7 +202,7 @@ def test_list_of_array(json_str: bytes):
 
 def test_column_parsing(json_str: bytes):
     structure = {"stream3": [[np.float64, np.uint8, np.uint8]],
-                 "stream2": [[np.float32, bool, str]],
+                 "stream2": [[np.float32, np.bool, str]],
                  "nest":{"stream0":[[np.float32, np.int8]]}}
     deserialized = deserialize(json_str, structure)
     print(type(deserialized), deserialized)
@@ -218,6 +227,7 @@ def test_entire_structure(json_str: bytes):
         "float_arr": np.float32,
         "int_arr": np.int16,
         "uint_arr": np.uint32,
+        "bool_arr": np.bool_,
         "nest": {"is_nest": bool,
                  "nestiness": float,
                  "stream0": [[np.float32, np.int32]], 
@@ -244,6 +254,7 @@ def json_str() -> bytes:
         "float_arr":[[1.254439975231648,-0.6893827594332794],[-0.2922560025562806,0.5204819306523419]],
         "int_arr":[[-100,-25],[-41,-62]],
         "uint_arr":[[100, 25],[41, 62]],
+        "bool_arr":[[false, true],[true, false]],
         "stream0":[[-1.720294114558863,0.5990469735869592,0.0506514091042812,0.7204746283872987,1.5351637640639662],
                    [72,45,-58,-16,-14],
                    [1,0,0,1,0]],

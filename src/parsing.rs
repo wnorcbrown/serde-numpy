@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use pyo3::FromPyObject;
+
 use serde_json::Value;
 use serde_json::value::Index;
 
+use pyo3::FromPyObject;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{Python, PyErr, PyResult, IntoPy, PyObject};
 use pyo3::types::PyType;
@@ -50,24 +51,23 @@ fn get_py_object<I: Index>(py: Python, value: &Value, type_name: &str, opt_colum
         "int" => parse_list(py, &value, &value_as_i64, opt_column_selector),
         "float" => parse_list(py, &value, &value_as_f64, opt_column_selector),
 
-        "float32" => parse_array(py, &value, &value_as_f64, &to_f32, opt_column_selector),
-        "float64" => parse_array(py, &value, &value_as_f64,&identity, opt_column_selector),
+        "float32" => parse_array(py, &value, &value_as_f64, &to_f32, 0.0, opt_column_selector),
+        "float64" => parse_array(py, &value, &value_as_f64,&identity, 0.0, opt_column_selector),
 
-        "int8" => parse_array(py, &value, &value_as_i64,&to_i8, opt_column_selector),
-        "int16" => parse_array(py, &value, &value_as_i64,&to_i16, opt_column_selector),
-        "int32" => parse_array(py, &value, &value_as_i64,&to_i32, opt_column_selector),
-        "int64" => parse_array(py, &value, &value_as_i64,&identity, opt_column_selector),
+        "int8" => parse_array(py, &value, &value_as_i64,&to_i8, 0, opt_column_selector),
+        "int16" => parse_array(py, &value, &value_as_i64,&to_i16, 0, opt_column_selector),
+        "int32" => parse_array(py, &value, &value_as_i64,&to_i32, 0, opt_column_selector),
+        "int64" => parse_array(py, &value, &value_as_i64,&identity, 0, opt_column_selector),
 
-        "uint8" => parse_array(py, &value, &value_as_u64,&to_u8, opt_column_selector),
-        "uint16" => parse_array(py, &value, &value_as_u64,&to_u16, opt_column_selector),
-        "uint32" => parse_array(py, &value, &value_as_u64,&to_u32, opt_column_selector),
-        "uint64" => parse_array(py, &value, &value_as_u64,&identity, opt_column_selector),
+        "uint8" => parse_array(py, &value, &value_as_u64,&to_u8, 0, opt_column_selector),
+        "uint16" => parse_array(py, &value, &value_as_u64,&to_u16, 0, opt_column_selector),
+        "uint32" => parse_array(py, &value, &value_as_u64,&to_u32, 0, opt_column_selector),
+        "uint64" => parse_array(py, &value, &value_as_u64,&identity, 0, opt_column_selector),
 
-        // "bool_" => parse_array(py, &value, &value_as_bool,&identity),
+        "bool_" => parse_array(py, &value, &value_as_bool,&identity, false, opt_column_selector),
         _ => return Err(PyErr::new::<PyValueError, _>(format!("{:?} type not supported", type_name)))
     }
 }
-
 
 
 pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<String, Structure>) -> PyResult<HashMap<String, OutStructure>> {
@@ -156,7 +156,7 @@ fn value_as_bool(value: &Value) -> Option<bool> {
 
 fn value_as_str(value: &Value) -> Option<String> {
     if let Some(slice) = value.as_str() {
-        return Some(String::from(slice))
+        return Some(String::from(slice)) /* need to get rid of copy here */ 
     }
     None
 }
