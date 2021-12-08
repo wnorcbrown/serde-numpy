@@ -29,14 +29,26 @@ def assert_correct_types(structure: dict, deserialized: dict):
             assert type_s == type_d
             assert_correct_types(v, deserialized[k])
         elif type_s is list:
+
+            # [[Type, ...]] for parsing list of lists stored row-wise
             if _get_type(v[0]) == list:
-                # [[Type, ...]] for parsing list of lists stored row-wise
-                assert all((_get_type(d) == _get_type(s) for s, d in zip(v[0], deserialized[k])))
+                for s, d in zip(v[0], deserialized[k]):
+                    if type(d) != list:
+                        assert _get_type(d) == _get_type(s)
+                    else:
+                        assert all(_get_type(d[i]) == _get_type(s) for i in range(len(d)))
+
+            # [{key: Type, ...}] for parsing list of dict stored row-wise
             elif _get_type(v[0]) == dict:
-                # [{key: Type, ...}] for parsing list of dict stored row-wise
                 assert_correct_types(v[0], deserialized[k])
+                
+            # [Type, ...] for parsing list of lists stored row-wise
             else:
-                assert all((_get_type(d) == _get_type(s) for s, d in zip(v, deserialized[k])))
+                for s, d in zip(v, deserialized[k]):
+                    if type(d) != list:
+                        assert _get_type(d) == _get_type(s)
+                    else:
+                        assert all(_get_type(d[i]) == _get_type(s) for i in range(len(d)))
             
 
 def test_parses(json_str: bytes):
@@ -180,7 +192,9 @@ def test_list_of_array(json_str: bytes):
                                                     [1,0,0,1,0]])
 
 def test_column_parsing(json_str: bytes):
-    structure = {"stream3": [[np.float64, np.uint8, np.uint8]]}
+    structure = {"stream3": [[np.float64, np.uint8, np.uint8]],
+                 "stream2": [[np.float32, bool, str]],
+                 "nest":{"stream0":[[np.float32, np.int8]]}}
     deserialized = deserialize(json_str, structure)
     print(type(deserialized), deserialized)
     assert_same_structure(structure, deserialized)
@@ -194,6 +208,30 @@ def test_column_parsing(json_str: bytes):
     assert_same_structure(structure, deserialized)
     assert_correct_types(structure, deserialized)
 
+
+def test_entire_structure(json_str: bytes):
+    structure = {
+        "str": str,
+        "int": int,
+        "bool": bool,
+        "float": float,
+        "float_arr": np.float32,
+        "int_arr": np.int16,
+        "uint_arr": np.uint32,
+        "nest": {"is_nest": bool,
+                 "nestiness": float,
+                 "stream0": [[np.float32, np.int32]], 
+                 "stream1": [[np.int32, np.uint8]]},
+        "stream0": [np.float64, np.int64, np.int8],
+        "stream1": [np.float64, np.int64, bool],
+        "stream2": [[np.float64, bool, str]],
+        "stream3": [[np.float64, np.int32, int]],
+        "stream4": [{"x": np.float64, "y": np.uint8, "z": np.uint8}],
+        }
+    deserialized = deserialize(json_str, structure)
+    print(type(deserialized), deserialized)
+    assert_same_structure(structure, deserialized)
+    assert_correct_types(structure, deserialized)
 
 
 @pytest.fixture

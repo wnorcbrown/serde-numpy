@@ -45,10 +45,10 @@ impl IntoPy<PyObject> for OutStructure {
 
 fn get_py_object<I: Index>(py: Python, value: &Value, type_name: &str, opt_column_selector: Option<I>) -> PyResult<PyObject> {
     match type_name {
-        "str" => parse_list(py, &value, &value_as_str),
-        "bool" => parse_list(py, &value, &value_as_bool),
-        "int" => parse_list(py, &value, &value_as_i64),
-        "float" => parse_list(py, &value, &value_as_f64),
+        "str" => parse_list(py, &value, &value_as_str, opt_column_selector),
+        "bool" => parse_list(py, &value, &value_as_bool, opt_column_selector),
+        "int" => parse_list(py, &value, &value_as_i64, opt_column_selector),
+        "float" => parse_list(py, &value, &value_as_f64, opt_column_selector),
 
         "float32" => parse_array(py, &value, &value_as_f64, &to_f32, opt_column_selector),
         "float64" => parse_array(py, &value, &value_as_f64,&identity, opt_column_selector),

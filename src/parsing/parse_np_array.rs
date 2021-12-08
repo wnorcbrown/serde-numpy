@@ -43,7 +43,6 @@ fn parse_1d<U, T: Element + Zero, I: Index>(py: Python,
     let mut out = Array1::<T>::zeros(shape[0]);
     for i in 0..shape[0] {
         let element;
-        
         match opt_column_selector {
             None => {element = &value[i];},
             Some(ref column_selector) => {element = &value[i][column_selector];}
