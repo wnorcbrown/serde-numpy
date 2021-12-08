@@ -33,7 +33,7 @@ fn parse_1d<U: IntoPy<PyObject>, I: Index>(py: Python,
                                  as_type: &dyn Fn(&Value) -> Option<U>,
                                  opt_column_selector: Option<I>,
                                 ) -> PyResult<PyObject> {
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(shape[0]);
     for i in 0..shape[0] {
         let element;
         match opt_column_selector {
@@ -56,9 +56,9 @@ fn parse_2d<U: IntoPy<PyObject>>(py: Python,
                                  shape: Vec<usize>, 
                                  as_type: &dyn Fn(&Value) -> Option<U>, 
                                 ) -> PyResult<PyObject> {
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(shape[0]);
     for i in 0..shape[0] {
-        let mut row = Vec::new();
+        let mut row = Vec::with_capacity(shape[1]);
         for j in 0..shape[1] {
             if let Some(v) = as_type(&value[i][j]){
                 row.push(v);

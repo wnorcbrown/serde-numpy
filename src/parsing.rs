@@ -156,7 +156,7 @@ fn value_as_bool(value: &Value) -> Option<bool> {
 
 fn value_as_str(value: &Value) -> Option<String> {
     if let Some(slice) = value.as_str() {
-        return Some(String::from(slice)) /* need to get rid of copy here */ 
+        return Some(slice.to_owned())
     }
     None
 }

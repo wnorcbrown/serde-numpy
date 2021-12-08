@@ -1,4 +1,4 @@
-from typing import List, Mapping, Sequence, Type, Tuple
+from typing import Callable, List, Mapping, Sequence, Type, Tuple
 import json
 import time
 
@@ -19,26 +19,18 @@ def make_data(shape: Tuple[int, ...], dtypes: Sequence[Type]) -> bytes:
             out[f"key_{i}"] = np.random.randint(-2**15, 2**15, size=shape).tolist()
         elif dtype in [float, np.float16, np.float32, np.float64]:
             out[f"key_{i}"] = (np.random.randn(np.prod(shape)).reshape(shape) * 2**8).tolist()
-        elif dtype == bool:
+        elif dtype in [bool, np.bool_]:
             out[f"key_{i}"] = (np.random.rand(np.prod(shape)).reshape(shape) < 0.5).tolist()
         elif dtype == str:
             out[f"key_{i}"] = np.random.choice(list(string.ascii_letters), np.prod(shape), replace=True).reshape(shape).tolist()
     return str.encode(json.dumps(out))
 
 
-def json_numpy_loads(json_str: bytes, n_keys: int, dtypes: Sequence[Type]) -> Mapping[str, np.ndarray]:
-    out = json.loads(json_str)
+def json_numpy_loads(json_str: bytes, n_keys: int, dtypes: Sequence[Type], load_str_func: Callable) -> Mapping[str, np.ndarray]:
+    out = load_str_func(json_str)
     for i in range(n_keys):
         out[f"key_{i}"] = np.array(out[f"key_{i}"], dtypes[i])
     return out
-
-
-def orjson_numpy_loads(json_str: bytes, n_keys: int, dtypes: Sequence[Type]) -> Mapping[str, np.ndarray]:
-    out = orjson.loads(json_str)
-    for i in range(n_keys):
-        out[f"key_{i}"] = np.array(out[f"key_{i}"])
-    return out
-
 
 def serde_numpy_loads(json_str: bytes, n_keys: int, dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
     keys = [f"key_{i}" for i in range(n_keys)]
@@ -58,13 +50,13 @@ def run_profile(n_rows: int, n_cols: int, dtypes: Sequence[Type] = (np.int32, np
     times_json = []
     for _ in range(n_iters):
         time0 = time.time()
-        _ = json_numpy_loads(data, len(dtypes), dtypes)
+        _ = json_numpy_loads(data, len(dtypes), dtypes, json.loads)
         times_json.append(time.time() - time0)
     
     times_orjson = []
     for _ in range(n_iters):
         time0 = time.time()
-        _ = orjson_numpy_loads(data, len(dtypes), dtypes)
+        _ = json_numpy_loads(data, len(dtypes), dtypes, orjson.loads)
         times_orjson.append(time.time() - time0)
     
     times_serde_numpy = []
