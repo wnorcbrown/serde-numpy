@@ -3,9 +3,11 @@ use std::collections::HashMap;
 use pyo3::prelude::{pymodule, PyModule, PyResult, Python};
 use::pyo3::PyErr;
 use::pyo3::exceptions::{PyIOError};
+use pyo3::types::PyDict;
 
 mod parsing;
-use parsing::{Structure, OutStructure};
+use parsing::Structure;
+
 
 
 #[pymodule]
@@ -13,7 +15,7 @@ fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 
     #[pyfn(m)]
     #[pyo3(name = "deserialize")]
-    fn deserialize<'py>(py: Python<'py>, json_str: &[u8], structure: HashMap<String, Structure>) -> PyResult<HashMap<String, OutStructure>> {
+    fn deserialize<'py>(py: Python<'py>, json_str: &[u8], structure: HashMap<String, Structure>) -> PyResult<&'py PyDict> {
 
         let result = serde_json::from_slice(json_str);
         

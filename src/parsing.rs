@@ -6,8 +6,8 @@ use serde_json::value::Index;
 
 use pyo3::FromPyObject;
 use pyo3::exceptions::PyValueError;
-use pyo3::prelude::{Python, PyErr, PyResult, IntoPy, PyObject};
-use pyo3::types::PyType;
+use pyo3::prelude::{Python, PyErr, PyResult, PyObject};
+use pyo3::types::{PyType, PyDict, PyList};
 
 mod parse_utils;
 mod parse_np_array;
@@ -24,23 +24,6 @@ pub enum Structure <'py> {
     ListofList(Vec<Vec<&'py PyType>>),
     ListofMap(Vec<HashMap<String, &'py PyType>>),
     Map(HashMap<String, Structure<'py>>)
-}
-
-#[derive(Debug)]
-pub enum OutStructure {
-    Value(PyObject),
-    List(Vec<PyObject>),
-    Map(HashMap<String, OutStructure>)
-}
-
-impl IntoPy<PyObject> for OutStructure {
-    fn into_py(self, py: Python) -> PyObject {
-        match self {
-            OutStructure::Value(v) => v.into_py(py),
-            OutStructure::List(v) => v.into_py(py),
-            OutStructure::Map(v) => v.into_py(py),
-        }
-    }
 }
 
 
@@ -70,15 +53,15 @@ fn get_py_object<I: Index>(py: Python, value: &Value, type_name: &str, opt_colum
 }
 
 
-pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<String, Structure>) -> PyResult<HashMap<String, OutStructure>> {
-    let mut out: HashMap<String, OutStructure> = HashMap::new();
+pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<String, Structure>) -> PyResult<&'py PyDict> {
+    let out = PyDict::new(py);
     
     for (k, v) in structure {
         if let Structure::Type(t) = v {
             if let Ok(type_name) = t.name() {
                let result = get_py_object(py, &value[&k], type_name, None::<usize>);
                 match result {
-                    Ok(obj) => {out.insert(k, OutStructure::Value(obj));},
+                    Ok(obj) => {out.set_item(k, obj)?;},
                     Err(err) => return Err(err)
 
                 }
@@ -94,7 +77,7 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
                     }
                 }
             }
-            out.insert(k, OutStructure::List(objects));
+            out.set_item(k, PyList::new(py, objects))?;
         }
         else if let Structure::ListofList(m) = v {
             let mut objects = Vec::new();
@@ -106,24 +89,24 @@ pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<Strin
                     }
                 }
             }
-            out.insert(k, OutStructure::List(objects));
+            out.set_item(k, objects)?;
         }
         else if let Structure::ListofMap(m) = v {
-            let mut objects: HashMap<String, OutStructure> = HashMap::new();
+            let objects = PyDict::new(py);
             for (i, &t) in &m[0] {
                 if let Ok(type_name) = t.name() {
                     match get_py_object(py, &value[&k], type_name, Some(&i)) {
-                        Ok(obj) => {objects.insert(i.to_string(), OutStructure::Value(obj));}
+                        Ok(obj) => {objects.set_item(i, obj)?;}
                         Err(err) => return Err(err)
                     }
                 }
             }
-            out.insert(k, OutStructure::Map(objects));
+            out.set_item(k, objects)?;
         }
         else if let Structure::Map(m) = v {
             let result =  deserialize(py, &value[&k], m);
             match result {
-                Ok(mapping) => {out.insert(k, OutStructure::Map(mapping));},
+                Ok(mapping) => {out.set_item(k, mapping)?;},
                 Err(err) => return Err(err)
             }
         }
