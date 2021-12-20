@@ -77,6 +77,8 @@ if __name__ == "__main__":
     import sys
     dtypes = sys.argv[1:]
     dtypes = [_get_dtype(name) for name in dtypes]
+    if len(dtypes) == 0:
+        raise ValueError("No dtypes specified!")
     print(f"For dtypes: {dtypes}")
     run_profile(2*1, 4, name="tiny", n_iters=1000, dtypes=dtypes)
     run_profile(2**5, 4, name="small", n_iters=100, dtypes=dtypes)
