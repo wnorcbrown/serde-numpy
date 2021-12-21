@@ -22,8 +22,8 @@ pub enum Structure <'py> {
     Type(&'py PyType),
     List(Vec<&'py PyType>),
     ListofList(Vec<Vec<&'py PyType>>),
-    ListofMap(Vec<HashMap<String, &'py PyType>>),
-    Map(HashMap<String, Structure<'py>>)
+    ListofMap(Vec<HashMap<&'py str, &'py PyType>>),
+    Map(HashMap<&'py str, Structure<'py>>)
 }
 
 
@@ -53,7 +53,7 @@ fn get_py_object<I: Index>(py: Python, value: &Value, type_name: &str, opt_colum
 }
 
 
-pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<String, Structure>) -> PyResult<&'py PyDict> {
+pub fn deserialize<'py>(py: Python<'py>, value: &Value, structure: HashMap<&'py str, Structure>) -> PyResult<&'py PyDict> {
     let out = PyDict::new(py);
     
     for (k, v) in structure {

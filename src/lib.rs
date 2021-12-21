@@ -15,7 +15,7 @@ fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 
     #[pyfn(m)]
     #[pyo3(name = "deserialize")]
-    fn deserialize<'py>(py: Python<'py>, json_str: &[u8], structure: HashMap<String, Structure>) -> PyResult<&'py PyDict> {
+    fn deserialize<'py>(py: Python<'py>, json_str: &[u8], structure: HashMap<&'py str, Structure>) -> PyResult<&'py PyDict> {
 
         let result = serde_json::from_slice(json_str);
         
