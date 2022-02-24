@@ -3,18 +3,18 @@ name = "serde_numpy"
 version = "0.1.0"
 authors = ["Will Norcliffe Brown", "Radu Grosu"]
 description = "A library for parsing selected keys from json directly into numpy arrays"
-edition = "2018"
+edition = "2021"
 
 [lib]
 name = "serde_numpy"
 crate-type = ["cdylib"] 
 
 [dependencies]
-numpy = "0.15" # rust-numpy
-ndarray = "0.15"
+numpy = "0.15.1" # rust-numpy
+ndarray = "0.15.1"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 itertools = "0.7.8"
 
 [dependencies.pyo3]
-version = "0.15"
-features = ["extension-module"]
+pyo3 = { version = "^0.15.1", features = ["extension-module"] }
