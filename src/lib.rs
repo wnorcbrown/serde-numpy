@@ -6,7 +6,7 @@ use pyo3::prelude::{pymodule, PyModule, PyResult, Python};
 use pyo3::types::PyDict;
 
 mod parsing;
-use parsing::Structure;
+use parsing::PyStructure;
 
 #[pymodule]
 fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
@@ -15,7 +15,7 @@ fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     fn deserialize<'py>(
         py: Python<'py>,
         json_str: &[u8],
-        structure: HashMap<&'py str, Structure>,
+        structure: HashMap<&'py str, PyStructure>,
     ) -> PyResult<&'py PyDict> {
         let result = serde_json::from_slice(json_str);
 

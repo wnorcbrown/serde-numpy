@@ -14,8 +14,10 @@ use pyo3::FromPyObject;
 mod parse_np_array;
 mod parse_py_list;
 mod parse_utils;
+mod array_types;
 use parse_np_array::parse_array;
 use parse_py_list::parse_list;
+use array_types::{I32Array, F32Array, OutputTypes, I32, F32};
 
 fn get_py_object<I: Index>(
     py: Python,
@@ -55,12 +57,12 @@ fn get_py_object<I: Index>(
 pub fn deserialize<'py>(
     py: Python<'py>,
     value: &Value,
-    structure: HashMap<&'py str, Structure>,
+    structure: HashMap<&'py str, PyStructure>,
 ) -> PyResult<&'py PyDict> {
     let out = PyDict::new(py);
 
     for (k, v) in structure {
-        if let Structure::Type(t) = v {
+        if let PyStructure::Type(t) = v {
             if let Ok(type_name) = t.name() {
                 let result = get_py_object(py, &value[&k], type_name, None::<usize>);
                 match result {
@@ -70,7 +72,7 @@ pub fn deserialize<'py>(
                     Err(err) => return Err(err),
                 }
             }
-        } else if let Structure::List(m) = v {
+        } else if let PyStructure::List(m) = v {
             let mut objects = Vec::new();
             for (i, &t) in m.iter().enumerate() {
                 if let Ok(type_name) = t.name() {
@@ -83,7 +85,7 @@ pub fn deserialize<'py>(
                 }
             }
             out.set_item(k, PyList::new(py, objects))?;
-        } else if let Structure::ListofList(m) = v {
+        } else if let PyStructure::ListofList(m) = v {
             let mut objects = Vec::new();
             for (i, &t) in m[0].iter().enumerate() {
                 if let Ok(type_name) = t.name() {
@@ -96,7 +98,7 @@ pub fn deserialize<'py>(
                 }
             }
             out.set_item(k, objects)?;
-        } else if let Structure::ListofMap(m) = v {
+        } else if let PyStructure::ListofMap(m) = v {
             let objects = PyDict::new(py);
             for (i, &t) in &m[0] {
                 if let Ok(type_name) = t.name() {
@@ -109,7 +111,7 @@ pub fn deserialize<'py>(
                 }
             }
             out.set_item(k, objects)?;
-        } else if let Structure::Map(m) = v {
+        } else if let PyStructure::Map(m) = v {
             let result = deserialize(py, &value[&k], m);
             match result {
                 Ok(mapping) => {
@@ -186,18 +188,17 @@ pub fn to_u32(i: u64) -> u32 {
     i as u32
 }
 
-use pyo3::{IntoPy, PyAny, ToPyObject};
 use serde;
 use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Serialize};
 
 #[derive(FromPyObject, Debug)]
-pub enum Structure<'py> {
+pub enum PyStructure<'py> {
     Type(&'py PyType),
     List(Vec<&'py PyType>),
     ListofList(Vec<Vec<&'py PyType>>),
     ListofMap(Vec<HashMap<&'py str, &'py PyType>>),
-    Map(HashMap<&'py str, Structure<'py>>),
+    Map(HashMap<&'py str, PyStructure<'py>>),
 }
 
 // #[derive(Debug, PartialEq)]
@@ -215,170 +216,6 @@ pub enum Structure<'py> {
 //     }
 // }
 
-#[derive(Debug, PartialEq)]
-enum I32 {
-    Scalar(i32),
-    Array(Vec<i32>),
-}
-
-use ndarray::ShapeBuilder;
-
-#[derive(Debug, PartialEq)]
-struct I32Array(I32, Option<Vec<usize>>);
-
-impl IntoPy<PyObject> for I32Array {
-    fn into_py(self, py: Python) -> PyObject {
-        match self {
-            I32Array(I32::Scalar(val), _) => val.into_py(py),
-            I32Array(I32::Array(arr), shape) => {
-                ndarray::ArrayBase::from_shape_vec(shape.unwrap().into_shape(), arr)
-                    .unwrap()
-                    .into_pyarray(py)
-                    .into_py(py)
-            }
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for I32Array {
-    fn deserialize<D>(deserializer: D) -> Result<I32Array, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct I32Visitor;
-
-        impl<'de> Visitor<'de> for I32Visitor {
-            type Value = I32Array;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("int or array of ints")
-            }
-
-            fn visit_i8<E>(self, value: i8) -> Result<Self::Value, E> {
-                Ok(I32Array(I32::Scalar(value as i32), None))
-            }
-
-            fn visit_i16<E>(self, value: i16) -> Result<Self::Value, E> {
-                Ok(I32Array(I32::Scalar(value as i32), None))
-            }
-
-            fn visit_i32<E>(self, value: i32) -> Result<Self::Value, E> {
-                Ok(I32Array(I32::Scalar(value as i32), None))
-            }
-
-            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
-                Ok(I32Array(I32::Scalar(value as i32), None))
-            }
-
-            fn visit_u8<E>(self, value: u8) -> Result<Self::Value, E> {
-                Ok(I32Array(I32::Scalar(value as i32), None))
-            }
-
-            fn visit_u16<E>(self, value: u16) -> Result<Self::Value, E> {
-                Ok(I32Array(I32::Scalar(value as i32), None))
-            }
-
-            fn visit_u32<E>(self, value: u32) -> Result<Self::Value, E> {
-                Ok(I32Array(I32::Scalar(value as i32), None))
-            }
-
-            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
-                Ok(I32Array(I32::Scalar(value as i32), None))
-            }
-
-            fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
-            where
-                S: SeqAccess<'de>,
-            {
-                let mut vec = Vec::<i32>::new();
-                let mut dim = None;
-                let mut length = 0;
-                while let Some(elem) = seq.next_element::<I32Array>()? {
-                    length += 1;
-                    match elem.0 {
-                        I32::Scalar(val) => vec.push(val),
-                        I32::Array(arr) => {
-                            vec.extend(arr.iter());
-                            if dim.is_none() {
-                                dim = elem.1;
-                            }
-                        }
-                    }
-                }
-                let mut shape = vec![length];
-                match dim {
-                    Some(dim) => {
-                        shape.extend(dim);
-                        Ok(I32Array(I32::Array(vec), Some(shape)))
-                    }
-                    None => Ok(I32Array(I32::Array(vec), Some(shape))),
-                }
-            }
-        }
-        deserializer.deserialize_any(I32Visitor)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum F32 {
-    Scalar(f32),
-    Array(Vec<f32>),
-}
-
-impl IntoPy<PyObject> for F32 {
-    fn into_py(self, py: Python) -> PyObject {
-        match self {
-            F32::Scalar(val) => val.into_py(py),
-            F32::Array(arr) => arr.into_pyarray(py).into_py(py),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for F32 {
-    fn deserialize<D>(deserializer: D) -> Result<F32, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct F32Visitor;
-
-        impl<'de> Visitor<'de> for F32Visitor {
-            type Value = F32;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("float or array of floats")
-            }
-
-            fn visit_f32<E>(self, value: f32) -> Result<F32, E> {
-                Ok(F32::Scalar(value))
-            }
-
-            fn visit_f64<E>(self, value: f64) -> Result<F32, E> {
-                Ok(F32::Scalar(value as f32))
-            }
-
-            fn visit_seq<S>(self, mut seq: S) -> Result<F32, S::Error>
-            where
-                S: SeqAccess<'de>,
-            {
-                let mut vec = Vec::<f32>::new();
-                while let Some(elem) = seq.next_element::<F32>()? {
-                    match elem {
-                        F32::Scalar(val) => vec.push(val),
-                        F32::Array(arr) => vec.extend(arr.iter()),
-                    }
-                }
-                Ok(F32::Array(vec))
-            }
-        }
-        deserializer.deserialize_any(F32Visitor)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum OutputTypes {
-    I32(I32Array),
-    F32(F32),
-}
 
 // impl IntoPy<PyObject> for OutputTypes {
 //     fn into_py(self, py: Python) -> PyObject {
@@ -389,10 +226,28 @@ enum OutputTypes {
 //     }
 // }
 
-#[derive(Debug, Serialize, Deserialize)]
+
+#[derive(Debug, Deserialize)]
+pub enum InputTypes {
+    int32,
+    float32
+}
+
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum Structure {
+    Type(InputTypes),
+    List(Vec<InputTypes>),
+    ListofList(Vec<Vec<InputTypes>>),
+    ListofMap(Vec<HashMap<String, InputTypes>>),
+    Map(HashMap<String, Structure>),
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(transparent)]
 struct StructureDescriptor {
-    data: HashMap<String, String>,
+    data: Structure,
 }
 
 impl<'de> DeserializeSeed<'de> for StructureDescriptor {
@@ -420,15 +275,22 @@ impl<'de> Visitor<'de> for StructureVisitor {
         A: MapAccess<'de>,
     {
         let mut out = HashMap::new();
-        while let Some(key) = map.next_key::<String>()? {
-            let value = match self.0.data.get(&key).map_or("", |v| v.as_str()) {
-                "int32" => OutputTypes::I32(map.next_value::<I32Array>()?),
-                "float32" => OutputTypes::F32(map.next_value::<F32>()?),
-                _ => panic!(""),
-            };
-            out.insert(key, value);
+        let structure = self.0.data;
+        if let Structure::Map(structure_map) = structure {
+            while let Some(key) = map.next_key::<String>()? {
+                let value = match structure_map.get(&key) {
+                    Some(Structure::Type(InputTypes::int32)) => OutputTypes::I32(map.next_value::<I32Array>()?),
+                    Some(Structure::Type(InputTypes::float32)) => OutputTypes::F32(map.next_value::<F32Array>()?),
+                    Some(Structure::Map(_)) => panic!(""),
+                    _ => panic!(""),
+                };
+                out.insert(key, value);
+            }
+            Ok(out)
         }
-        Ok(out)
+        else {
+            panic!(""); // add correct error here
+        }
     }
 }
 
@@ -484,10 +346,10 @@ fn test() {
     );
     assert_eq!(
         out.get("float").unwrap(),
-        &OutputTypes::F32(F32::Scalar(-1.8))
+        &OutputTypes::F32(F32Array(F32::Scalar(-1.8), None))
     );
     assert_eq!(
         out.get("float_arr").unwrap(),
-        &OutputTypes::F32(F32::Array(vec![6.7, 7.8]))
+        &OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2])))
     )
 }
