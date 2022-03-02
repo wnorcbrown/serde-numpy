@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize};
 use serde::de::{Visitor, SeqAccess};
 
@@ -14,6 +16,12 @@ pub enum I32 {
 
 #[derive(Debug, PartialEq)]
 pub struct I32Array(pub I32, pub Option<Vec<usize>>);
+
+impl I32Array {
+    pub fn new() -> I32Array {
+        I32Array(I32::Array(vec![]), Some(vec![0]))
+    }
+}
 
 impl IntoPy<PyObject> for I32Array {
     fn into_py(self, py: Python) -> PyObject {
@@ -134,6 +142,12 @@ impl IntoPy<PyObject> for F32Array {
     }
 }
 
+impl F32Array {
+    pub fn new() -> F32Array {
+        F32Array(F32::Array(vec![]), Some(vec![0]))
+    }
+}
+
 impl<'de> Deserialize<'de> for F32Array {
     fn deserialize<D>(deserializer: D) -> Result<F32Array, D::Error>
     where
@@ -193,4 +207,6 @@ impl<'de> Deserialize<'de> for F32Array {
 pub enum OutputTypes {
     I32(I32Array),
     F32(F32Array),
+    List(Vec<OutputTypes>),
+    Map(HashMap<String, OutputTypes>)
 }
