@@ -230,11 +230,3 @@ impl<'de> Deserialize<'de> for F32Array {
         deserializer.deserialize_any(F32Visitor)
     }
 }
-
-#[derive(Debug, PartialEq)]
-pub enum OutputTypes {
-    I32(I32Array),
-    F32(F32Array),
-    List(Vec<OutputTypes>),
-    Map(HashMap<String, OutputTypes>),
-}

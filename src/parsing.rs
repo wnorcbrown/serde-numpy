@@ -7,7 +7,7 @@ use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
 
 use pyo3::exceptions::PyValueError;
-use pyo3::prelude::{PyErr, PyObject, PyResult, Python};
+use pyo3::prelude::{PyErr, PyObject, PyResult, Python, IntoPy};
 use pyo3::types::{PyDict, PyList, PyType};
 use pyo3::FromPyObject;
 
@@ -15,7 +15,7 @@ mod array_types;
 mod parse_np_array;
 mod parse_py_list;
 mod parse_utils;
-use array_types::{F32Array, I32Array, OutputTypes, F32, I32};
+use array_types::{F32Array, I32Array, F32, I32};
 use parse_np_array::parse_array;
 use parse_py_list::parse_list;
 
@@ -252,6 +252,26 @@ impl<'de, 's> DeserializeSeed<'de> for TransposeVecs<'s> {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum OutputTypes {
+    I32(I32Array),
+    F32(F32Array),
+    List(Vec<OutputTypes>),
+    Map(HashMap<String, OutputTypes>),
+}
+
+impl IntoPy<PyObject> for OutputTypes {
+    fn into_py(self, py: Python) -> PyObject {
+        match self {
+            OutputTypes::I32(v) => v.into_py(py),
+            OutputTypes::F32(v) => v.into_py(py),
+            OutputTypes::List(v) => v.into_py(py),
+            OutputTypes::Map(v) => v.into_py(py),
+        }
+    }
+}
+
+
 struct TransposeVisitor<'s>(TransposeVecs<'s>);
 
 impl<'de, 's> Visitor<'de> for TransposeVisitor<'s> {
@@ -281,7 +301,7 @@ impl<'de, 's> Visitor<'de> for TransposeVisitor<'s> {
 
 #[derive(Debug, Deserialize)]
 #[serde(transparent)]
-struct StructureDescriptor {
+pub struct StructureDescriptor {
     data: Structure,
 }
 

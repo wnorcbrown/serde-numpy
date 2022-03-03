@@ -7,7 +7,7 @@ import orjson
 import json
 import string
 
-from serde_numpy import deserialize
+from serde_numpy import deserialize, deserialize_new
 
 np.random.seed(33)
 
@@ -16,9 +16,9 @@ def make_data(shape: Tuple[int, ...], dtypes: Sequence[Type]) -> bytes:
     out = {}
     for i, dtype in enumerate(dtypes):
         if dtype in [int, np.int16, np.int32, np.int64]:
-            out[f"key_{i}"] = np.random.randint(-2**15, 2**15, size=shape).tolist()
+            out[f"key_{i}"] = np.random.randint(-2**15, 2**15, size=shape).reshape(-1).tolist()
         elif dtype in [float, np.float16, np.float32, np.float64]:
-            out[f"key_{i}"] = (np.random.randn(np.prod(shape)).reshape(shape) * 2**8).tolist()
+            out[f"key_{i}"] = (np.random.randn(np.prod(shape)).reshape(shape) * 2**8).reshape(-1).tolist()
         elif dtype in [bool, np.bool_]:
             out[f"key_{i}"] = (np.random.rand(np.prod(shape)).reshape(shape) < 0.5).tolist()
         elif dtype == str:
@@ -35,6 +35,17 @@ def json_numpy_loads(json_str: bytes, n_keys: int, dtypes: Sequence[Type], load_
 def serde_numpy_loads(json_str: bytes, n_keys: int, dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
     keys = [f"key_{i}" for i in range(n_keys)]
     return deserialize(json_str, dict(zip(keys, dtypes)))
+
+
+def serde_numpy_new_loads(json_str: bytes, n_keys: int, dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
+    keys = [f"key_{i}" for i in range(n_keys)]
+    structure = dict(((k, d) for k, d in zip(keys, dtypes)))
+    for k, v in structure.items():
+        if v == np.int32:
+            structure[k] = "int32"
+        elif v == np.float32:
+            structure[k] = "float32"
+    return deserialize_new(json_str, orjson.dumps(structure))
 
 
 def _get_dtype(name: str) -> type:
@@ -62,7 +73,7 @@ def run_profile(n_rows: int, n_cols: int, dtypes: Sequence[Type] = (np.int32, np
     times_serde_numpy = []
     for _ in range(n_iters):
         time0 = time.time()
-        _ = serde_numpy_loads(data, len(dtypes), dtypes)
+        _ = serde_numpy_new_loads(data, len(dtypes), dtypes)
         times_serde_numpy.append(time.time() - time0)
     
     print("-"*75)
@@ -80,8 +91,8 @@ if __name__ == "__main__":
     if len(dtypes) == 0:
         raise ValueError("No dtypes specified!")
     print(f"For dtypes: {dtypes}")
-    run_profile(2*1, 4, name="tiny", n_iters=1000, dtypes=dtypes)
-    run_profile(2**5, 4, name="small", n_iters=100, dtypes=dtypes)
-    run_profile(2**10, 8, name="medium", n_iters=10, dtypes=dtypes)
-    run_profile(2**15, 8, name="large", n_iters=5, dtypes=dtypes)
-    run_profile(2**20, 8, name="huge", n_iters=2, dtypes=dtypes)
+    run_profile(2*1, 1, name="tiny", n_iters=1000, dtypes=dtypes)
+    run_profile(2**5, 1, name="small", n_iters=100, dtypes=dtypes)
+    run_profile(2**10, 1, name="medium", n_iters=10, dtypes=dtypes)
+    run_profile(2**15, 1, name="large", n_iters=5, dtypes=dtypes)
+    run_profile(2**20, 1, name="huge", n_iters=2, dtypes=dtypes)
