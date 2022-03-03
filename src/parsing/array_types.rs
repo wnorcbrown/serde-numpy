@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize};
-use serde::de::{Visitor, SeqAccess};
+use serde::de::{SeqAccess, Visitor};
+use serde::Deserialize;
 
 use ndarray::ShapeBuilder;
 use numpy::IntoPyArray;
 use pyo3::prelude::*;
-
 
 #[derive(Debug, PartialEq)]
 pub enum I32 {
@@ -20,6 +19,22 @@ pub struct I32Array(pub I32, pub Option<Vec<usize>>);
 impl I32Array {
     pub fn new() -> I32Array {
         I32Array(I32::Array(vec![]), Some(vec![0]))
+    }
+
+    pub fn push(&mut self, arr: I32Array) {
+        match arr.0 {
+            I32::Scalar(value) => match self {
+                I32Array(I32::Array(ref mut vec), Some(ref mut shape)) => {
+                    vec.push(value);
+                    if shape.len() != 1 {
+                        panic!("not working for non 1D arrays")
+                    };
+                    shape[0] += 1
+                }
+                _ => panic!("not implemented"),
+            },
+            _ => panic!("not implemented"),
+        }
     }
 }
 
@@ -116,9 +131,6 @@ impl<'de> Deserialize<'de> for I32Array {
     }
 }
 
-
-
-
 #[derive(Debug, PartialEq)]
 pub enum F32 {
     Scalar(f32),
@@ -145,6 +157,22 @@ impl IntoPy<PyObject> for F32Array {
 impl F32Array {
     pub fn new() -> F32Array {
         F32Array(F32::Array(vec![]), Some(vec![0]))
+    }
+
+    pub fn push(&mut self, arr: F32Array) {
+        match arr.0 {
+            F32::Scalar(value) => match self {
+                F32Array(F32::Array(ref mut vec), Some(ref mut shape)) => {
+                    vec.push(value);
+                    if shape.len() != 1 {
+                        panic!("not working for non 1D arrays")
+                    };
+                    shape[0] += 1
+                }
+                _ => panic!("not implemented"),
+            },
+            _ => panic!("not implemented"),
+        }
     }
 }
 
@@ -173,31 +201,31 @@ impl<'de> Deserialize<'de> for F32Array {
             fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
             where
                 S: SeqAccess<'de>,
-                {
-                    let mut vec = Vec::<f32>::new();
-                    let mut dim = None;
-                    let mut length = 0;
-                    while let Some(elem) = seq.next_element::<F32Array>()? {
-                        length += 1;
-                        match elem.0 {
-                            F32::Scalar(val) => vec.push(val),
-                            F32::Array(arr) => {
-                                vec.extend(arr.iter());
-                                if dim.is_none() {
-                                    dim = elem.1;
-                                }
+            {
+                let mut vec = Vec::<f32>::new();
+                let mut dim = None;
+                let mut length = 0;
+                while let Some(elem) = seq.next_element::<F32Array>()? {
+                    length += 1;
+                    match elem.0 {
+                        F32::Scalar(val) => vec.push(val),
+                        F32::Array(arr) => {
+                            vec.extend(arr.iter());
+                            if dim.is_none() {
+                                dim = elem.1;
                             }
                         }
                     }
-                    let mut shape = vec![length];
-                    match dim {
-                        Some(dim) => {
-                            shape.extend(dim);
-                            Ok(F32Array(F32::Array(vec), Some(shape)))
-                        }
-                        None => Ok(F32Array(F32::Array(vec), Some(shape))),
-                    }
                 }
+                let mut shape = vec![length];
+                match dim {
+                    Some(dim) => {
+                        shape.extend(dim);
+                        Ok(F32Array(F32::Array(vec), Some(shape)))
+                    }
+                    None => Ok(F32Array(F32::Array(vec), Some(shape))),
+                }
+            }
         }
         deserializer.deserialize_any(F32Visitor)
     }
@@ -208,5 +236,5 @@ pub enum OutputTypes {
     I32(I32Array),
     F32(F32Array),
     List(Vec<OutputTypes>),
-    Map(HashMap<String, OutputTypes>)
+    Map(HashMap<String, OutputTypes>),
 }
