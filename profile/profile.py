@@ -16,9 +16,9 @@ def make_data(shape: Tuple[int, ...], dtypes: Sequence[Type]) -> bytes:
     out = {}
     for i, dtype in enumerate(dtypes):
         if dtype in [int, np.int16, np.int32, np.int64]:
-            out[f"key_{i}"] = np.random.randint(-2**15, 2**15, size=shape).reshape(-1).tolist()
+            out[f"key_{i}"] = np.random.randint(-2**15, 2**15, size=shape).tolist()
         elif dtype in [float, np.float16, np.float32, np.float64]:
-            out[f"key_{i}"] = (np.random.randn(np.prod(shape)).reshape(shape) * 2**8).reshape(-1).tolist()
+            out[f"key_{i}"] = (np.random.randn(np.prod(shape)).reshape(shape) * 2**8).tolist()
         elif dtype in [bool, np.bool_]:
             out[f"key_{i}"] = (np.random.rand(np.prod(shape)).reshape(shape) < 0.5).tolist()
         elif dtype == str:
@@ -26,26 +26,18 @@ def make_data(shape: Tuple[int, ...], dtypes: Sequence[Type]) -> bytes:
     return str.encode(json.dumps(out))
 
 
-def json_numpy_loads(json_str: bytes, n_keys: int, dtypes: Sequence[Type], load_str_func: Callable) -> Mapping[str, np.ndarray]:
+def json_numpy_loads(json_str: bytes, keys: Sequence, dtypes: Sequence[Type], load_str_func: Callable) -> Mapping[str, np.ndarray]:
     out = load_str_func(json_str)
-    for i in range(n_keys):
-        out[f"key_{i}"] = np.array(out[f"key_{i}"], dtypes[i])
+    for i, key in enumerate(keys):
+        out[key] = np.array(out[key], dtypes[i])
     return out
 
-def serde_numpy_loads(json_str: bytes, n_keys: int, dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
-    keys = [f"key_{i}" for i in range(n_keys)]
+def serde_numpy_loads(json_str: bytes, keys: int, dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
     return deserialize(json_str, dict(zip(keys, dtypes)))
 
 
-def serde_numpy_new_loads(json_str: bytes, n_keys: int, dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
-    keys = [f"key_{i}" for i in range(n_keys)]
-    structure = dict(((k, d) for k, d in zip(keys, dtypes)))
-    for k, v in structure.items():
-        if v == np.int32:
-            structure[k] = "int32"
-        elif v == np.float32:
-            structure[k] = "float32"
-    return deserialize_new(json_str, orjson.dumps(structure))
+def serde_numpy_new_loads(json_str: bytes, structure) -> Mapping[str, List[np.ndarray]]:
+    return deserialize_new(json_str, structure)
 
 
 def _get_dtype(name: str) -> type:
@@ -57,23 +49,31 @@ def _get_dtype(name: str) -> type:
 
 def run_profile(n_rows: int, n_cols: int, dtypes: Sequence[Type] = (np.int32, np.float32), name: str = "", n_iters: int = 100):
     data = make_data((n_rows, n_cols), dtypes)
+    keys = [f"key_{i}" for i in range(len(dtypes))]
 
     times_json = []
     for _ in range(n_iters):
         time0 = time.time()
-        _ = json_numpy_loads(data, len(dtypes), dtypes, json.loads)
+        _ = json_numpy_loads(data, keys, dtypes, json.loads)
         times_json.append(time.time() - time0)
     
     times_orjson = []
     for _ in range(n_iters):
         time0 = time.time()
-        _ = json_numpy_loads(data, len(dtypes), dtypes, orjson.loads)
+        _ = json_numpy_loads(data, keys, dtypes, orjson.loads)
         times_orjson.append(time.time() - time0)
     
     times_serde_numpy = []
+    structure = dict(((k, d) for k, d in zip(keys, dtypes)))
+    for k, v in structure.items():
+        if v == np.int32:
+            structure[k] = "int32"
+        elif v == np.float32:
+            structure[k] = "float32"
+    structure = orjson.dumps(structure)
     for _ in range(n_iters):
         time0 = time.time()
-        _ = serde_numpy_new_loads(data, len(dtypes), dtypes)
+        _ = serde_numpy_new_loads(data, structure)
         times_serde_numpy.append(time.time() - time0)
     
     print("-"*75)
@@ -91,8 +91,8 @@ if __name__ == "__main__":
     if len(dtypes) == 0:
         raise ValueError("No dtypes specified!")
     print(f"For dtypes: {dtypes}")
-    run_profile(2*1, 1, name="tiny", n_iters=1000, dtypes=dtypes)
-    run_profile(2**5, 1, name="small", n_iters=100, dtypes=dtypes)
-    run_profile(2**10, 1, name="medium", n_iters=10, dtypes=dtypes)
-    run_profile(2**15, 1, name="large", n_iters=5, dtypes=dtypes)
-    run_profile(2**20, 1, name="huge", n_iters=2, dtypes=dtypes)
+    run_profile(2*1, 2, name="tiny", n_iters=1000, dtypes=dtypes)
+    run_profile(2**5, 2, name="small", n_iters=100, dtypes=dtypes)
+    run_profile(2**10, 4, name="medium", n_iters=10, dtypes=dtypes)
+    run_profile(2**15, 4, name="large", n_iters=5, dtypes=dtypes)
+    run_profile(2**20, 6, name="huge", n_iters=2, dtypes=dtypes)
