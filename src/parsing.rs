@@ -4,18 +4,14 @@ use serde;
 use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
 
-use pyo3::prelude::{PyErr, PyObject, Python, IntoPy};
+use pyo3::prelude::{IntoPy, PyErr, PyObject, Python};
 use pyo3::types::PyType;
 use pyo3::FromPyObject;
 
 mod array_types;
 mod transpose_types;
 use array_types::{F32Array, I32Array};
-use transpose_types::{TransposeSeq, TransposeMap};
-
-// test imports
-use serde_json::Value;
-use array_types::{F32, I32};
+use transpose_types::{TransposeMap, TransposeSeq};
 
 #[derive(Clone, Debug, Deserialize)]
 pub enum InputTypes {
@@ -33,20 +29,17 @@ impl<'source> FromPyObject<'source> for InputTypes {
             match pytype.name() {
                 Ok("int32") => Ok(InputTypes::int32),
                 Ok("float32") => Ok(InputTypes::float32),
-                _ => panic!("unrecognised type")
+                _ => panic!("unrecognised type"),
             }
-        }
-        else if let Ok(string) = object.extract::<&'source str>() {
+        } else if let Ok(string) = object.extract::<&'source str>() {
             match string {
                 "int32" => Ok(InputTypes::int32),
                 "float32" => Ok(InputTypes::float32),
-                _ => panic!("unrecognised type")
+                _ => panic!("unrecognised type"),
             }
-        }
-        else {
+        } else {
             panic!("cannot parse as InputType {:?}", object)
         }
-        
     }
 }
 
@@ -78,7 +71,6 @@ impl IntoPy<PyObject> for OutputTypes {
         }
     }
 }
-
 
 #[derive(Debug, Deserialize)]
 #[serde(transparent)]
@@ -219,9 +211,16 @@ impl<'de> Visitor<'de> for StructureVisitor {
     }
 }
 
-#[test]
-fn test_flat() {
-    let flat_structure = r#"{
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use array_types::{F32, I32};
+    use serde_json::Value;
+
+    #[test]
+    fn test_flat() {
+        let flat_structure = r#"{
         "int": "int32",
         "int_arr": "int32",
         "int_arr2D": "int32",
@@ -230,9 +229,10 @@ fn test_flat() {
         "float_arr": "float32"
     }"#;
 
-    let structure_descriptor: StructureDescriptor = serde_json::from_str(flat_structure).unwrap();
+        let structure_descriptor: StructureDescriptor =
+            serde_json::from_str(flat_structure).unwrap();
 
-    let json = r#"{
+        let json = r#"{
         "int": 5,
         "int_arr": [-1, 3],
         "int_arr2D": [[1, 2], [3, 4], [5, 6]],
@@ -241,204 +241,206 @@ fn test_flat() {
         "float_arr": [6.7, 7.8]
     }"#;
 
-    let _: Value = serde_json::from_str(json).unwrap(); // test valid json
+        let _: Value = serde_json::from_str(json).unwrap(); // test valid json
 
-    let out = structure_descriptor
-        .deserialize(&mut serde_json::Deserializer::from_str(json))
-        .unwrap();
+        let out = structure_descriptor
+            .deserialize(&mut serde_json::Deserializer::from_str(json))
+            .unwrap();
 
-    let expected = OutputTypes::Map(HashMap::from([
-        (
-            "int".to_string(),
-            OutputTypes::I32(I32Array(I32::Scalar(5), None)),
-        ),
-        (
-            "int_arr".to_string(),
-            OutputTypes::I32(I32Array(I32::Array(vec![-1, 3]), Some(vec![2]))),
-        ),
-        (
-            "int_arr2D".to_string(),
-            OutputTypes::I32(I32Array(
-                I32::Array(vec![1, 2, 3, 4, 5, 6]),
-                Some(vec![3, 2]),
-            )),
-        ),
-        (
-            "int_arr3D".to_string(),
-            OutputTypes::I32(I32Array(
-                I32::Array(vec![1, 2, 3, 4, 5, 6]),
-                Some(vec![1, 3, 2]),
-            )),
-        ),
-        (
-            "float".to_string(),
-            OutputTypes::F32(F32Array(F32::Scalar(-1.8), None)),
-        ),
-        (
-            "float_arr".to_string(),
-            OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2]))),
-        ),
-    ]));
-
-    assert_eq!(out, expected);
-}
-
-#[test]
-fn test_nested() {
-    let nested_structure = r#"{
-        "int": {"int_arr2D": "int32"},
-        "float": {"float_arr2D": "float32"}
-    }"#;
-
-    let structure_descriptor: StructureDescriptor = serde_json::from_str(nested_structure).unwrap();
-
-    let json = r#"{
-        "int": {"int_arr2D": [[1, 2], [3, 4], [5, 6]]},
-        "float": {"float_arr2D": [6.7, 7.8]}
-    }"#;
-
-    let _: Value = serde_json::from_str(json).unwrap(); // test valid json
-
-    let out = structure_descriptor
-        .deserialize(&mut serde_json::Deserializer::from_str(json))
-        .unwrap();
-
-    let int_arr = OutputTypes::I32(I32Array(
-        I32::Array(vec![1, 2, 3, 4, 5, 6]),
-        Some(vec![3, 2]),
-    ));
-
-    let float_arr = OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2])));
-
-    let expected = OutputTypes::Map(HashMap::from([
-        (
-            "int".to_string(),
-            OutputTypes::Map(HashMap::from([("int_arr2D".to_string(), int_arr)])),
-        ),
-        (
-            "float".to_string(),
-            OutputTypes::Map(HashMap::from([("float_arr2D".to_string(), float_arr)])),
-        ),
-    ]));
-
-    assert_eq!(out, expected);
-}
-
-#[test]
-fn test_list() {
-    let structure = r#"{
-        "arr1": ["int32", "float32"],
-        "arr2": ["float32", "float32"]
-    }"#;
-
-    let structure_descriptor: StructureDescriptor = serde_json::from_str(structure).unwrap();
-
-    let json = r#"{
-        "arr1": [[[1, 2], [3, 4], [5, 6]], [6.7, 7.8]],
-        "arr2": [[3.4, 4.5], [6.7, 7.8]]
-    }"#;
-
-    let _: Value = serde_json::from_str(json).unwrap(); // test valid json
-
-    let out = structure_descriptor
-        .deserialize(&mut serde_json::Deserializer::from_str(json))
-        .unwrap();
-
-    let expected = OutputTypes::Map(HashMap::from([
-        (
-            "arr1".to_string(),
-            OutputTypes::List(vec![
+        let expected = OutputTypes::Map(HashMap::from([
+            (
+                "int".to_string(),
+                OutputTypes::I32(I32Array(I32::Scalar(5), None)),
+            ),
+            (
+                "int_arr".to_string(),
+                OutputTypes::I32(I32Array(I32::Array(vec![-1, 3]), Some(vec![2]))),
+            ),
+            (
+                "int_arr2D".to_string(),
                 OutputTypes::I32(I32Array(
                     I32::Array(vec![1, 2, 3, 4, 5, 6]),
                     Some(vec![3, 2]),
                 )),
+            ),
+            (
+                "int_arr3D".to_string(),
+                OutputTypes::I32(I32Array(
+                    I32::Array(vec![1, 2, 3, 4, 5, 6]),
+                    Some(vec![1, 3, 2]),
+                )),
+            ),
+            (
+                "float".to_string(),
+                OutputTypes::F32(F32Array(F32::Scalar(-1.8), None)),
+            ),
+            (
+                "float_arr".to_string(),
                 OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2]))),
-            ]),
-        ),
-        (
-            "arr2".to_string(),
-            OutputTypes::List(vec![
-                OutputTypes::F32(F32Array(F32::Array(vec![3.4, 4.5]), Some(vec![2]))),
-                OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2]))),
-            ]),
-        ),
-    ]));
+            ),
+        ]));
 
-    assert_eq!(out, expected);
-}
+        assert_eq!(out, expected);
+    }
 
-#[test]
-fn test_list_of_lists() {
-    let structure = r#"{
+    #[test]
+    fn test_nested() {
+        let nested_structure = r#"{
+        "int": {"int_arr2D": "int32"},
+        "float": {"float_arr2D": "float32"}
+    }"#;
+
+        let structure_descriptor: StructureDescriptor =
+            serde_json::from_str(nested_structure).unwrap();
+
+        let json = r#"{
+        "int": {"int_arr2D": [[1, 2], [3, 4], [5, 6]]},
+        "float": {"float_arr2D": [6.7, 7.8]}
+    }"#;
+
+        let _: Value = serde_json::from_str(json).unwrap(); // test valid json
+
+        let out = structure_descriptor
+            .deserialize(&mut serde_json::Deserializer::from_str(json))
+            .unwrap();
+
+        let int_arr = OutputTypes::I32(I32Array(
+            I32::Array(vec![1, 2, 3, 4, 5, 6]),
+            Some(vec![3, 2]),
+        ));
+
+        let float_arr = OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2])));
+
+        let expected = OutputTypes::Map(HashMap::from([
+            (
+                "int".to_string(),
+                OutputTypes::Map(HashMap::from([("int_arr2D".to_string(), int_arr)])),
+            ),
+            (
+                "float".to_string(),
+                OutputTypes::Map(HashMap::from([("float_arr2D".to_string(), float_arr)])),
+            ),
+        ]));
+
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn test_list() {
+        let structure = r#"{
+        "arr1": ["int32", "float32"],
+        "arr2": ["float32", "float32"]
+    }"#;
+
+        let structure_descriptor: StructureDescriptor = serde_json::from_str(structure).unwrap();
+
+        let json = r#"{
+        "arr1": [[[1, 2], [3, 4], [5, 6]], [6.7, 7.8]],
+        "arr2": [[3.4, 4.5], [6.7, 7.8]]
+    }"#;
+
+        let _: Value = serde_json::from_str(json).unwrap(); // test valid json
+
+        let out = structure_descriptor
+            .deserialize(&mut serde_json::Deserializer::from_str(json))
+            .unwrap();
+
+        let expected = OutputTypes::Map(HashMap::from([
+            (
+                "arr1".to_string(),
+                OutputTypes::List(vec![
+                    OutputTypes::I32(I32Array(
+                        I32::Array(vec![1, 2, 3, 4, 5, 6]),
+                        Some(vec![3, 2]),
+                    )),
+                    OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2]))),
+                ]),
+            ),
+            (
+                "arr2".to_string(),
+                OutputTypes::List(vec![
+                    OutputTypes::F32(F32Array(F32::Array(vec![3.4, 4.5]), Some(vec![2]))),
+                    OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2]))),
+                ]),
+            ),
+        ]));
+
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn test_list_of_lists() {
+        let structure = r#"{
         "arr1": [["int32", "float32"]]
     }"#;
 
-    let structure_descriptor: StructureDescriptor = serde_json::from_str(structure).unwrap();
+        let structure_descriptor: StructureDescriptor = serde_json::from_str(structure).unwrap();
 
-    let json = r#"{
+        let json = r#"{
         "arr1": [[1, 2.1], 
                  [3, 4.3], 
                  [5, 6.5], 
                  [6, 7.8]]
     }"#;
 
-    let _: Value = serde_json::from_str(json).unwrap(); // test valid json
+        let _: Value = serde_json::from_str(json).unwrap(); // test valid json
 
-    let out = structure_descriptor
-        .deserialize(&mut serde_json::Deserializer::from_str(json))
-        .unwrap();
+        let out = structure_descriptor
+            .deserialize(&mut serde_json::Deserializer::from_str(json))
+            .unwrap();
 
-    let expected = OutputTypes::Map(HashMap::from([
-        (
+        let expected = OutputTypes::Map(HashMap::from([(
             "arr1".to_string(),
             OutputTypes::List(vec![
-                OutputTypes::I32(I32Array(
-                    I32::Array(vec![1, 3, 5, 6]), 
-                    Some(vec![4]))),
+                OutputTypes::I32(I32Array(I32::Array(vec![1, 3, 5, 6]), Some(vec![4]))),
                 OutputTypes::F32(F32Array(
                     F32::Array(vec![2.1, 4.3, 6.5, 7.8]),
                     Some(vec![4]),
                 )),
             ]),
-        ),
-    ]));
+        )]));
 
-    assert_eq!(out, expected);
-}
+        assert_eq!(out, expected);
+    }
 
-
-#[test]
-fn test_list_of_maps() {
-    let structure = r#"{
+    #[test]
+    fn test_list_of_maps() {
+        let structure = r#"{
         "arr1": [{"a": "int32", "b": "float32"}]
     }"#;
 
-    let structure_descriptor: StructureDescriptor = serde_json::from_str(structure).unwrap();
+        let structure_descriptor: StructureDescriptor = serde_json::from_str(structure).unwrap();
 
-    let json = r#"{
+        let json = r#"{
         "arr1": [{"a": 1, "b": 2.1}, 
                  {"a": 3, "b": 4.3}, 
                  {"a": 5, "b": 6.5}, 
                  {"a": 6, "b": 7.8}]
     }"#;
 
-    let _: Value = serde_json::from_str(json).unwrap(); // test valid json
+        let _: Value = serde_json::from_str(json).unwrap(); // test valid json
 
-    let out = structure_descriptor
-        .deserialize(&mut serde_json::Deserializer::from_str(json))
-        .unwrap();
+        let out = structure_descriptor
+            .deserialize(&mut serde_json::Deserializer::from_str(json))
+            .unwrap();
 
-    let expected = OutputTypes::Map(HashMap::from([
-        (
+        let expected = OutputTypes::Map(HashMap::from([(
             "arr1".to_string(),
-            OutputTypes::Map(
-                HashMap::from([
-                    ("a".to_string(), OutputTypes::I32(I32Array(I32::Array(vec![1, 3, 5, 6]), Some(vec![4])))),
-                    ("b".to_string(), OutputTypes::F32(F32Array(F32::Array(vec![2.1, 4.3, 6.5, 7.8]), Some(vec![4]))))
-                ])
-            ),
-        ),
-    ]));
+            OutputTypes::Map(HashMap::from([
+                (
+                    "a".to_string(),
+                    OutputTypes::I32(I32Array(I32::Array(vec![1, 3, 5, 6]), Some(vec![4]))),
+                ),
+                (
+                    "b".to_string(),
+                    OutputTypes::F32(F32Array(
+                        F32::Array(vec![2.1, 4.3, 6.5, 7.8]),
+                        Some(vec![4]),
+                    )),
+                ),
+            ])),
+        )]));
 
-    assert_eq!(out, expected);
+        assert_eq!(out, expected);
+    }
 }
