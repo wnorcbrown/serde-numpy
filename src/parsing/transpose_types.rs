@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use serde::de::{DeserializeSeed, Deserializer, Visitor, SeqAccess, MapAccess};
+use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 
+use crate::parsing::array_types::{F32Array, I32Array};
 use crate::parsing::OutputTypes;
-use crate::parsing::array_types::{I32Array, F32Array};
 
 pub struct TransposeSeq<'s>(pub &'s mut Vec<OutputTypes>);
 
@@ -18,7 +18,6 @@ impl<'de, 's> DeserializeSeed<'de> for TransposeSeq<'s> {
     }
 }
 
-
 struct TransposeSeqVisitor<'s>(TransposeSeq<'s>);
 
 impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
@@ -32,7 +31,7 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
     where
         S: SeqAccess<'de>,
     {
-        let out: &mut Vec<OutputTypes> = self.0.0;
+        let out: &mut Vec<OutputTypes> = self.0 .0;
         for output_type in out.iter_mut() {
             match output_type {
                 OutputTypes::I32(arr) => arr.push(seq.next_element::<I32Array>()?.unwrap()),
@@ -59,7 +58,6 @@ impl<'de, 's> DeserializeSeed<'de> for TransposeMap<'s> {
     }
 }
 
-
 struct TransposeMapVisitor<'s>(TransposeMap<'s>);
 
 impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
@@ -73,7 +71,7 @@ impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
     where
         A: MapAccess<'de>,
     {
-        let out: &mut HashMap<String, OutputTypes> = self.0.0;
+        let out: &mut HashMap<String, OutputTypes> = self.0 .0;
         while let Some(key) = map.next_key::<String>()? {
             if let Some(output_type) = out.get_mut(&key) {
                 match output_type {

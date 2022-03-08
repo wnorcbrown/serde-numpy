@@ -1,9 +1,11 @@
+use std::marker::PhantomData;
+
 use serde::de::{SeqAccess, Visitor};
 use serde::Deserialize;
 
 use ndarray::ShapeBuilder;
 use numpy::IntoPyArray;
-use pyo3::prelude::*;
+use pyo3::{prelude::*, AsPyPointer};
 
 #[derive(Debug, PartialEq)]
 pub enum I32 {
@@ -108,7 +110,7 @@ impl<'de> Deserialize<'de> for I32Array {
                     match elem.0 {
                         I32::Scalar(val) => vec.push(val),
                         I32::Array(arr) => {
-                            vec.extend(arr.iter());
+                            vec.extend(arr.into_iter());
                             if dim.is_none() {
                                 dim = elem.1;
                             }
@@ -208,7 +210,7 @@ impl<'de> Deserialize<'de> for F32Array {
                     match elem.0 {
                         F32::Scalar(val) => vec.push(val),
                         F32::Array(arr) => {
-                            vec.extend(arr.iter());
+                            vec.extend(arr.into_iter());
                             if dim.is_none() {
                                 dim = elem.1;
                             }
@@ -226,5 +228,106 @@ impl<'de> Deserialize<'de> for F32Array {
             }
         }
         deserializer.deserialize_any(F32Visitor)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Base<T> {
+    Scalar(T),
+    Array(Vec<T>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Array<T>(pub Base<T>, pub Option<Vec<usize>>);
+
+impl<T: AsPyPointer + numpy::Element> IntoPy<PyObject> for Array<T> {
+    fn into_py(self, py: Python) -> PyObject {
+        match self {
+            Array(Base::Scalar(val), _) => val.into_py(py),
+            Array(Base::Array(arr), shape) => {
+                ndarray::ArrayBase::from_shape_vec(shape.unwrap().into_shape(), arr)
+                    .unwrap()
+                    .into_pyarray(py)
+                    .into_py(py)
+            }
+        }
+    }
+}
+
+impl<T> Array<T> {
+    pub fn new() -> Array<T> {
+        Array(Base::Array(vec![]), Some(vec![0]))
+    }
+
+    pub fn push(&mut self, arr: Array<T>) {
+        match arr.0 {
+            Base::Scalar(value) => match self {
+                Array(Base::Array(ref mut vec), Some(ref mut shape)) => {
+                    vec.push(value);
+                    if shape.len() != 1 {
+                        panic!("not working for non 1D arrays")
+                    };
+                    shape[0] += 1
+                }
+                _ => panic!("not implemented"),
+            },
+            _ => panic!("not implemented"),
+        }
+    }
+}
+
+impl<'de, T: From<f32> + From<f64>> Deserialize<'de> for Array<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Array<T>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(BaseVisitor::<T>(PhantomData))
+    }
+}
+
+struct BaseVisitor<T>(PhantomData<T>);
+
+impl<'de, T: From<f32> + From<f64>> Visitor<'de> for BaseVisitor<T> {
+    type Value = Array<T>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("float or array of floats")
+    }
+
+    fn visit_f32<E>(self, value: f32) -> Result<Self::Value, E> {
+        Ok(Array(Base::Scalar(value.into()), None))
+    }
+
+    fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E> {
+        Ok(Array(Base::Scalar(value.into()), None))
+    }
+
+    fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
+    where
+        S: SeqAccess<'de>,
+    {
+        let mut vec = Vec::<T>::new();
+        let mut dim = None;
+        let mut length = 0;
+        while let Some(elem) = seq.next_element::<Array<T>>()? {
+            length += 1;
+            match elem.0 {
+                Base::Scalar(val) => vec.push(val),
+                Base::Array(arr) => {
+                    vec.extend(arr.into_iter());
+                    if dim.is_none() {
+                        dim = elem.1;
+                    }
+                }
+            }
+        }
+        let mut shape = vec![length];
+        match dim {
+            Some(dim) => {
+                shape.extend(dim);
+                Ok(Array(Base::Array(vec), Some(shape)))
+            }
+            None => Ok(Array(Base::Array(vec), Some(shape))),
+        }
     }
 }
