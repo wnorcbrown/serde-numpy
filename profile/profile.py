@@ -7,7 +7,7 @@ import orjson
 import json
 import string
 
-from serde_numpy import deserialize, deserialize_new
+from serde_numpy import deserialize
 
 np.random.seed(33)
 
@@ -36,10 +36,6 @@ def serde_numpy_loads(json_str: bytes, keys: Sequence[str], dtypes: Sequence[Typ
     return deserialize(json_str, dict(zip(keys, dtypes)))
 
 
-def serde_numpy_new_loads(json_str: bytes, keys: Sequence[str], dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
-    return deserialize_new(json_str, dict(zip(keys, dtypes)))
-
-
 def _get_dtype(name: str) -> type:
     try:
         return eval(name)
@@ -66,7 +62,7 @@ def run_profile(n_rows: int, n_cols: int, dtypes: Sequence[Type] = (np.int32, np
     times_serde_numpy = []
     for _ in range(n_iters):
         time0 = time.time()
-        _ = serde_numpy_new_loads(data, keys, dtypes)
+        _ = serde_numpy_loads(data, keys, dtypes)
         times_serde_numpy.append(time.time() - time0)
     
     print("-"*75)
