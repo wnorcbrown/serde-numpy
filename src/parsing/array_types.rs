@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use serde::de::{SeqAccess, Visitor};
 use serde::Deserialize;
 

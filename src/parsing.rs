@@ -239,19 +239,6 @@ pub enum Structure {
     Map(HashMap<String, Structure>),
 }
 
-struct TransposeVecs<'s>(&'s mut Vec<OutputTypes>);
-
-impl<'de, 's> DeserializeSeed<'de> for TransposeVecs<'s> {
-    type Value = TransposeVecs<'s>;
-
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_seq(TransposeVisitor(self))
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub enum OutputTypes {
     I32(I32Array),
@@ -272,10 +259,24 @@ impl IntoPy<PyObject> for OutputTypes {
 }
 
 
-struct TransposeVisitor<'s>(TransposeVecs<'s>);
+struct TransposeSeq<'s>(&'s mut Vec<OutputTypes>);
 
-impl<'de, 's> Visitor<'de> for TransposeVisitor<'s> {
-    type Value = TransposeVecs<'s>;
+impl<'de, 's> DeserializeSeed<'de> for TransposeSeq<'s> {
+    type Value = TransposeSeq<'s>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(TransposeSeqVisitor(self))
+    }
+}
+
+
+struct TransposeSeqVisitor<'s>(TransposeSeq<'s>);
+
+impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
+    type Value = TransposeSeq<'s>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(formatter, "TODO")
@@ -285,7 +286,7 @@ impl<'de, 's> Visitor<'de> for TransposeVisitor<'s> {
     where
         S: SeqAccess<'de>,
     {
-        let out: &mut Vec<OutputTypes> = self.0 .0;
+        let out: &mut Vec<OutputTypes> = self.0.0;
         for output_type in out.iter_mut() {
             match output_type {
                 OutputTypes::I32(arr) => arr.push(seq.next_element::<I32Array>()?.unwrap()),
@@ -293,6 +294,49 @@ impl<'de, 's> Visitor<'de> for TransposeVisitor<'s> {
                 _ => panic!(
                     "other variants shoudn't be able to occur because of logic in StructureVisitor"
                 ),
+            }
+        }
+        Ok(self.0)
+    }
+}
+
+struct TransposeMap<'s>(&'s mut HashMap<String, OutputTypes>);
+
+impl<'de, 's> DeserializeSeed<'de> for TransposeMap<'s> {
+    type Value = TransposeMap<'s>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_map(TransposeMapVisitor(self))
+    }
+}
+
+
+struct TransposeMapVisitor<'s>(TransposeMap<'s>);
+
+impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
+    type Value = TransposeMap<'s>;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "TODO")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let out: &mut HashMap<String, OutputTypes> = self.0.0;
+        while let Some(key) = map.next_key::<String>()? {
+            if let Some(output_type) = out.get_mut(&key) {
+                match output_type {
+                    OutputTypes::I32(arr) => arr.push(map.next_value::<I32Array>()?),
+                    OutputTypes::F32(arr) => arr.push(map.next_value::<F32Array>()?),
+                    _ => panic!(
+                        "other variants shoudn't be able to occur because of logic in StructureVisitor"
+                    ),
+                }
             }
         }
         Ok(self.0)
@@ -353,6 +397,12 @@ impl<'de> Visitor<'de> for StructureVisitor {
                         };
                         map.next_value_seed(sub_structure)?
                     }
+                    Some(Structure::ListofMap(sub_structure_lom)) => {
+                        let sub_structure = StructureDescriptor {
+                            data: Structure::ListofMap(sub_structure_lom.clone()),
+                        };
+                        map.next_value_seed(sub_structure)?
+                    }
                     Some(Structure::Map(sub_structure_map)) => {
                         // TODO get rid of clone and pass as reference
                         let sub_structure = StructureDescriptor {
@@ -398,15 +448,34 @@ impl<'de> Visitor<'de> for StructureVisitor {
                     }
                 })
                 .collect();
-            let mut transpose_vecs = TransposeVecs(&mut out);
+            let mut transpose_vecs = TransposeSeq(&mut out);
             loop {
-                let next = seq.next_element_seed::<TransposeVecs>(transpose_vecs)?;
+                let next = seq.next_element_seed::<TransposeSeq>(transpose_vecs)?;
                 match next {
                     Some(next) => transpose_vecs = next,
                     None => break,
                 }
             }
             Ok(OutputTypes::List(out))
+        } else if let Structure::ListofMap(structure_lom) = structure {
+            let mut out: HashMap<String, OutputTypes> = structure_lom[0]
+                .iter()
+                .map(|(key, input_type)| -> (String, OutputTypes) {
+                    match input_type {
+                        InputTypes::int32 => (key.clone(), OutputTypes::I32(I32Array::new())),
+                        InputTypes::float32 => (key.clone(), OutputTypes::F32(F32Array::new())),
+                    }
+                })
+                .collect();
+            let mut transpose_map = TransposeMap(&mut out);
+            loop {
+                let next = seq.next_element_seed::<TransposeMap>(transpose_map)?;
+                match next {
+                    Some(next) => transpose_map = next,
+                    None => break,
+                }
+            }
+            Ok(OutputTypes::Map(out))
         } else {
             panic!()
         }
@@ -594,6 +663,43 @@ fn test_list_of_lists() {
                     Some(vec![4]),
                 )),
             ]),
+        ),
+    ]));
+
+    assert_eq!(out, expected);
+}
+
+
+#[test]
+fn test_list_of_maps() {
+    let structure = r#"{
+        "arr1": [{"a": "int32", "b": "float32"}]
+    }"#;
+
+    let structure_descriptor: StructureDescriptor = serde_json::from_str(structure).unwrap();
+
+    let json = r#"{
+        "arr1": [{"a": 1, "b": 2.1}, 
+                 {"a": 3, "b": 4.3}, 
+                 {"a": 5, "b": 6.5}, 
+                 {"a": 6, "b": 7.8}]
+    }"#;
+
+    let _: Value = serde_json::from_str(json).unwrap(); // test valid json
+
+    let out = structure_descriptor
+        .deserialize(&mut serde_json::Deserializer::from_str(json))
+        .unwrap();
+
+    let expected = OutputTypes::Map(HashMap::from([
+        (
+            "arr1".to_string(),
+            OutputTypes::Map(
+                HashMap::from([
+                    ("a".to_string(), OutputTypes::I32(I32Array(I32::Array(vec![1, 3, 5, 6]), Some(vec![4])))),
+                    ("b".to_string(), OutputTypes::F32(F32Array(F32::Array(vec![2.1, 4.3, 6.5, 7.8]), Some(vec![4]))))
+                ])
+            ),
         ),
     ]));
 
