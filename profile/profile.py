@@ -32,12 +32,12 @@ def json_numpy_loads(json_str: bytes, keys: Sequence, dtypes: Sequence[Type], lo
         out[key] = np.array(out[key], dtypes[i])
     return out
 
-def serde_numpy_loads(json_str: bytes, keys: int, dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
+def serde_numpy_loads(json_str: bytes, keys: Sequence[str], dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
     return deserialize(json_str, dict(zip(keys, dtypes)))
 
 
-def serde_numpy_new_loads(json_str: bytes, structure) -> Mapping[str, List[np.ndarray]]:
-    return deserialize_new(json_str, structure)
+def serde_numpy_new_loads(json_str: bytes, keys: Sequence[str], dtypes: Sequence[Type]) -> Mapping[str, List[np.ndarray]]:
+    return deserialize_new(json_str, dict(zip(keys, dtypes)))
 
 
 def _get_dtype(name: str) -> type:
@@ -64,16 +64,9 @@ def run_profile(n_rows: int, n_cols: int, dtypes: Sequence[Type] = (np.int32, np
         times_orjson.append(time.time() - time0)
     
     times_serde_numpy = []
-    structure = dict(((k, d) for k, d in zip(keys, dtypes)))
-    for k, v in structure.items():
-        if v == np.int32:
-            structure[k] = "int32"
-        elif v == np.float32:
-            structure[k] = "float32"
-    structure = orjson.dumps(structure)
     for _ in range(n_iters):
         time0 = time.time()
-        _ = serde_numpy_new_loads(data, structure)
+        _ = serde_numpy_new_loads(data, keys, dtypes)
         times_serde_numpy.append(time.time() - time0)
     
     print("-"*75)
