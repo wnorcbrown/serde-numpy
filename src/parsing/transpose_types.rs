@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 
-use crate::parsing::array_types::{F32Array, I32Array};
 use crate::parsing::OutputTypes;
 
 pub struct TransposeSeq<'s>(pub &'s mut Vec<OutputTypes>);
@@ -34,8 +33,8 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
         let out: &mut Vec<OutputTypes> = self.0 .0;
         for output_type in out.iter_mut() {
             match output_type {
-                OutputTypes::I32(arr) => arr.push(seq.next_element::<I32Array>()?.unwrap()),
-                OutputTypes::F32(arr) => arr.push(seq.next_element::<F32Array>()?.unwrap()),
+                OutputTypes::I32(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::F32(arr) => arr.push(seq.next_element()?.unwrap()),
                 _ => panic!(
                     "other variants shoudn't be able to occur because of logic in StructureVisitor"
                 ),
@@ -75,8 +74,8 @@ impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
         while let Some(key) = map.next_key::<String>()? {
             if let Some(output_type) = out.get_mut(&key) {
                 match output_type {
-                    OutputTypes::I32(arr) => arr.push(map.next_value::<I32Array>()?),
-                    OutputTypes::F32(arr) => arr.push(map.next_value::<F32Array>()?),
+                    OutputTypes::I32(arr) => arr.push(map.next_value()?),
+                    OutputTypes::F32(arr) => arr.push(map.next_value()?),
                     _ => panic!(
                         "other variants shoudn't be able to occur because of logic in StructureVisitor"
                     ),

@@ -10,7 +10,7 @@ use pyo3::FromPyObject;
 
 mod array_types;
 mod transpose_types;
-use array_types::{F32Array, I32Array};
+use array_types::Array;
 use transpose_types::{TransposeMap, TransposeSeq};
 
 #[derive(Clone, Debug, Deserialize)]
@@ -55,8 +55,8 @@ pub enum Structure {
 
 #[derive(Debug, PartialEq)]
 pub enum OutputTypes {
-    I32(I32Array),
-    F32(F32Array),
+    I32(Array<i32>),
+    F32(Array<f32>),
     List(Vec<OutputTypes>),
     Map(HashMap<String, OutputTypes>),
 }
@@ -108,10 +108,10 @@ impl<'de> Visitor<'de> for StructureVisitor {
             while let Some(key) = map.next_key::<String>()? {
                 let value = match structure_map.get(&key) {
                     Some(Structure::Type(InputTypes::int32)) => {
-                        OutputTypes::I32(map.next_value::<I32Array>()?)
+                        OutputTypes::I32(map.next_value()?)
                     }
                     Some(Structure::Type(InputTypes::float32)) => {
-                        OutputTypes::F32(map.next_value::<F32Array>()?)
+                        OutputTypes::F32(map.next_value()?)
                     }
 
                     Some(Structure::List(sub_structure_list)) => {
@@ -159,10 +159,10 @@ impl<'de> Visitor<'de> for StructureVisitor {
             for input_type in structure_list {
                 match input_type {
                     InputTypes::int32 => {
-                        out.push(OutputTypes::I32(seq.next_element::<I32Array>()?.unwrap()))
+                        out.push(OutputTypes::I32(seq.next_element()?.unwrap()))
                     }
                     InputTypes::float32 => {
-                        out.push(OutputTypes::F32(seq.next_element::<F32Array>()?.unwrap()))
+                        out.push(OutputTypes::F32(seq.next_element()?.unwrap()))
                     }
                 }
             }
@@ -172,8 +172,8 @@ impl<'de> Visitor<'de> for StructureVisitor {
                 .iter()
                 .map(|input_type| -> OutputTypes {
                     match input_type {
-                        InputTypes::int32 => OutputTypes::I32(I32Array::new()),
-                        InputTypes::float32 => OutputTypes::F32(F32Array::new()),
+                        InputTypes::int32 => OutputTypes::I32(Array::new()),
+                        InputTypes::float32 => OutputTypes::F32(Array::new()),
                     }
                 })
                 .collect();
@@ -191,8 +191,8 @@ impl<'de> Visitor<'de> for StructureVisitor {
                 .iter()
                 .map(|(key, input_type)| -> (String, OutputTypes) {
                     match input_type {
-                        InputTypes::int32 => (key.clone(), OutputTypes::I32(I32Array::new())),
-                        InputTypes::float32 => (key.clone(), OutputTypes::F32(F32Array::new())),
+                        InputTypes::int32 => (key.clone(), OutputTypes::I32(Array::new())),
+                        InputTypes::float32 => (key.clone(), OutputTypes::F32(Array::new())),
                     }
                 })
                 .collect();
@@ -215,7 +215,7 @@ impl<'de> Visitor<'de> for StructureVisitor {
 mod tests {
 
     use super::*;
-    use array_types::{F32, I32};
+    use array_types::Base;
     use serde_json::Value;
 
     #[test]
@@ -250,33 +250,33 @@ mod tests {
         let expected = OutputTypes::Map(HashMap::from([
             (
                 "int".to_string(),
-                OutputTypes::I32(I32Array(I32::Scalar(5), None)),
+                OutputTypes::I32(Array(Base::Scalar(5), None)),
             ),
             (
                 "int_arr".to_string(),
-                OutputTypes::I32(I32Array(I32::Array(vec![-1, 3]), Some(vec![2]))),
+                OutputTypes::I32(Array(Base::Array(vec![-1, 3]), Some(vec![2]))),
             ),
             (
                 "int_arr2D".to_string(),
-                OutputTypes::I32(I32Array(
-                    I32::Array(vec![1, 2, 3, 4, 5, 6]),
+                OutputTypes::I32(Array(
+                    Base::Array(vec![1, 2, 3, 4, 5, 6]),
                     Some(vec![3, 2]),
                 )),
             ),
             (
                 "int_arr3D".to_string(),
-                OutputTypes::I32(I32Array(
-                    I32::Array(vec![1, 2, 3, 4, 5, 6]),
+                OutputTypes::I32(Array(
+                    Base::Array(vec![1, 2, 3, 4, 5, 6]),
                     Some(vec![1, 3, 2]),
                 )),
             ),
             (
                 "float".to_string(),
-                OutputTypes::F32(F32Array(F32::Scalar(-1.8), None)),
+                OutputTypes::F32(Array(Base::Scalar(-1.8), None)),
             ),
             (
                 "float_arr".to_string(),
-                OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2]))),
+                OutputTypes::F32(Array(Base::Array(vec![6.7, 7.8]), Some(vec![2]))),
             ),
         ]));
 
@@ -304,12 +304,12 @@ mod tests {
             .deserialize(&mut serde_json::Deserializer::from_str(json))
             .unwrap();
 
-        let int_arr = OutputTypes::I32(I32Array(
-            I32::Array(vec![1, 2, 3, 4, 5, 6]),
+        let int_arr = OutputTypes::I32(Array(
+            Base::Array(vec![1, 2, 3, 4, 5, 6]),
             Some(vec![3, 2]),
         ));
 
-        let float_arr = OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2])));
+        let float_arr = OutputTypes::F32(Array(Base::Array(vec![6.7, 7.8]), Some(vec![2])));
 
         let expected = OutputTypes::Map(HashMap::from([
             (
@@ -349,18 +349,18 @@ mod tests {
             (
                 "arr1".to_string(),
                 OutputTypes::List(vec![
-                    OutputTypes::I32(I32Array(
-                        I32::Array(vec![1, 2, 3, 4, 5, 6]),
+                    OutputTypes::I32(Array(
+                        Base::Array(vec![1, 2, 3, 4, 5, 6]),
                         Some(vec![3, 2]),
                     )),
-                    OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2]))),
+                    OutputTypes::F32(Array(Base::Array(vec![6.7, 7.8]), Some(vec![2]))),
                 ]),
             ),
             (
                 "arr2".to_string(),
                 OutputTypes::List(vec![
-                    OutputTypes::F32(F32Array(F32::Array(vec![3.4, 4.5]), Some(vec![2]))),
-                    OutputTypes::F32(F32Array(F32::Array(vec![6.7, 7.8]), Some(vec![2]))),
+                    OutputTypes::F32(Array(Base::Array(vec![3.4, 4.5]), Some(vec![2]))),
+                    OutputTypes::F32(Array(Base::Array(vec![6.7, 7.8]), Some(vec![2]))),
                 ]),
             ),
         ]));
@@ -392,9 +392,9 @@ mod tests {
         let expected = OutputTypes::Map(HashMap::from([(
             "arr1".to_string(),
             OutputTypes::List(vec![
-                OutputTypes::I32(I32Array(I32::Array(vec![1, 3, 5, 6]), Some(vec![4]))),
-                OutputTypes::F32(F32Array(
-                    F32::Array(vec![2.1, 4.3, 6.5, 7.8]),
+                OutputTypes::I32(Array(Base::Array(vec![1, 3, 5, 6]), Some(vec![4]))),
+                OutputTypes::F32(Array(
+                    Base::Array(vec![2.1, 4.3, 6.5, 7.8]),
                     Some(vec![4]),
                 )),
             ]),
@@ -429,12 +429,12 @@ mod tests {
             OutputTypes::Map(HashMap::from([
                 (
                     "a".to_string(),
-                    OutputTypes::I32(I32Array(I32::Array(vec![1, 3, 5, 6]), Some(vec![4]))),
+                    OutputTypes::I32(Array(Base::Array(vec![1, 3, 5, 6]), Some(vec![4]))),
                 ),
                 (
                     "b".to_string(),
-                    OutputTypes::F32(F32Array(
-                        F32::Array(vec![2.1, 4.3, 6.5, 7.8]),
+                    OutputTypes::F32(Array(
+                        Base::Array(vec![2.1, 4.3, 6.5, 7.8]),
                         Some(vec![4]),
                     )),
                 ),

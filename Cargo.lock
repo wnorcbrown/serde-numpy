@@ -344,6 +344,7 @@ version = "0.1.0"
 dependencies = [
  "itertools",
  "ndarray",
+ "num-traits",
  "numpy",
  "pyo3",
  "serde",
