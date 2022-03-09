@@ -73,7 +73,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("array of numbers of the same dtype")
     }
-
+    #[inline]
     fn visit_f32<E: de::Error>(self, value: f32) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_f32(value) {
             Ok(Array(Base::Scalar(scalar), None))
@@ -82,7 +82,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
             Err(E::custom(format!("Could not cast {} (f32) into: {:?}", value, std::any::type_name::<T>())))
         }
     }
-
+    #[inline]
     fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_f64(value) {
             Ok(Array(Base::Scalar(scalar), None))
@@ -91,7 +91,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
             Err(E::custom(format!("Could not cast {} (f64) into: {:?}", value, std::any::type_name::<T>())))
         }
     }
-
+    #[inline]
     fn visit_i8<E: de::Error>(self, value: i8) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_i8(value) {
             Ok(Array(Base::Scalar(scalar), None))
@@ -100,7 +100,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
             Err(E::custom(format!("Could not cast {} (i8) into: {:?}", value, std::any::type_name::<T>())))
         }
     }
-
+    #[inline]
     fn visit_i16<E: de::Error>(self, value: i16) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_i16(value) {
             Ok(Array(Base::Scalar(scalar), None))
@@ -109,7 +109,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
             Err(E::custom(format!("Could not cast {} (i16) into: {:?}", value, std::any::type_name::<T>())))
         }
     }
-
+    #[inline]
     fn visit_i32<E: de::Error>(self, value: i32) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_i32(value) {
             Ok(Array(Base::Scalar(scalar), None))
@@ -118,7 +118,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
             Err(E::custom(format!("Could not cast {} (i32) into: {:?}", value, std::any::type_name::<T>())))
         }
     }
-
+    #[inline]
     fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_i64(value) {
             Ok(Array(Base::Scalar(scalar), None))
@@ -127,7 +127,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
             Err(E::custom(format!("Could not cast {} (i64) into: {:?}", value, std::any::type_name::<T>())))
         }
     }
-
+    #[inline]
     fn visit_u8<E: de::Error>(self, value: u8) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_u8(value) {
             Ok(Array(Base::Scalar(scalar), None))
@@ -136,7 +136,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
             Err(E::custom(format!("Could not cast {} (u8) into: {:?}", value, std::any::type_name::<T>())))
         }
     }
-
+    #[inline]
     fn visit_u16<E: de::Error>(self, value: u16) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_u16(value) {
             Ok(Array(Base::Scalar(scalar), None))
@@ -145,7 +145,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
             Err(E::custom(format!("Could not cast {} (u16) into: {:?}", value, std::any::type_name::<T>())))
         }
     }
-
+    #[inline]
     fn visit_u32<E: de::Error>(self, value: u32) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_u32(value) {
             Ok(Array(Base::Scalar(scalar), None))
@@ -154,7 +154,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
             Err(E::custom(format!("Could not cast {} (u32) into: {:?}", value, std::any::type_name::<T>())))
         }
     }
-
+    #[inline]
     fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_u64(value) {
             Ok(Array(Base::Scalar(scalar), None))
@@ -163,7 +163,7 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
             Err(E::custom(format!("Could not cast {} (u64) into: {:?}", value, std::any::type_name::<T>())))
         }
     }
-
+    
     fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
     where
         S: SeqAccess<'de>,

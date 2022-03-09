@@ -21,6 +21,15 @@ pub enum InputTypes {
     float32,
 }
 
+impl InputTypes {
+    fn get_output_type(&self) -> OutputTypes {
+        match self {
+            &InputTypes::float32 => OutputTypes::F32(Array::new()),
+            &InputTypes::int32 => OutputTypes::I32(Array::new()),
+        }
+    } 
+}
+
 use pyo3::PyAny;
 
 impl<'source> FromPyObject<'source> for InputTypes {
@@ -171,10 +180,7 @@ impl<'de> Visitor<'de> for StructureVisitor {
             let mut out: Vec<OutputTypes> = structure_lol[0]
                 .iter()
                 .map(|input_type| -> OutputTypes {
-                    match input_type {
-                        InputTypes::int32 => OutputTypes::I32(Array::new()),
-                        InputTypes::float32 => OutputTypes::F32(Array::new()),
-                    }
+                    input_type.get_output_type()
                 })
                 .collect();
             let mut transpose_vecs = TransposeSeq(&mut out);
@@ -190,10 +196,7 @@ impl<'de> Visitor<'de> for StructureVisitor {
             let mut out: HashMap<String, OutputTypes> = structure_lom[0]
                 .iter()
                 .map(|(key, input_type)| -> (String, OutputTypes) {
-                    match input_type {
-                        InputTypes::int32 => (key.clone(), OutputTypes::I32(Array::new())),
-                        InputTypes::float32 => (key.clone(), OutputTypes::F32(Array::new())),
-                    }
+                    (key.clone(), input_type.get_output_type())
                 })
                 .collect();
             let mut transpose_map = TransposeMap(&mut out);
