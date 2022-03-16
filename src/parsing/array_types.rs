@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
+use std::fmt;
 
 use serde::de;
-use serde::de::{SeqAccess, Visitor};
+use serde::de::{SeqAccess, Visitor, DeserializeSeed, Deserializer};
 use serde::Deserialize;
 
 use num_traits::cast::FromPrimitive;
@@ -54,7 +55,7 @@ impl<T> Array<T> {
     }
 }
 
-impl<'de, T: FromPrimitive> Deserialize<'de> for Array<T> {
+impl<'de, T: FromPrimitive + Deserialize<'de>> Deserialize<'de> for Array<T> {
     fn deserialize<D>(deserializer: D) -> Result<Array<T>, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -67,8 +68,10 @@ impl<'de, T: FromPrimitive> Deserialize<'de> for Array<T> {
 
 struct BaseVisitor<T>(PhantomData<T>);
 
-impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
+impl<'de, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for BaseVisitor<T> 
+{
     type Value = Array<T>;
+    
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("array of numbers of the same dtype")
@@ -169,27 +172,84 @@ impl<'de, T: FromPrimitive> Visitor<'de> for BaseVisitor<T> {
         S: SeqAccess<'de>,
     {
         let mut vec = Vec::<T>::new();
-        let mut dim = None;
-        let mut length = 0;
-        while let Some(elem) = seq.next_element::<Array<T>>()? {
-            length += 1;
-            match elem.0 {
-                Base::Scalar(val) => vec.push(val),
-                Base::Array(arr) => {
-                    vec.extend(arr.into_iter());
-                    if dim.is_none() {
-                        dim = elem.1;
-                    }
+        // let mut dim = None;
+        // let mut length = 0;
+        // while let Some(elem) = seq.next_element::<Array<T>>()? {
+        //     length += 1;
+        //     match elem.0 {
+        //         Base::Scalar(val) => vec.push(val),
+        //         Base::Array(arr) => {
+        //             vec.extend(arr.into_iter());
+        //             if dim.is_none() {
+        //                 dim = elem.1;
+        //             }
+        //         }
+        //     }
+        // }
+        // let mut shape = vec![length];
+        // match dim {
+        //     Some(dim) => {
+        //         shape.extend(dim);
+        //         Ok(Array(Base::Array(vec), Some(shape)))
+        //     }
+        //     None => Ok(Array(Base::Array(vec), Some(shape))),
+        // }
+
+        // Each iteration through this loop is one inner array.
+        let mut outer_size: usize = 0;
+        while let Some(()) = seq.next_element_seed(ExtendVec(&mut vec))? {
+            outer_size += 1;
+        }
+
+        // Return the finished vec.
+        let shape = Some(vec![outer_size, vec.len() / outer_size]);
+        Ok(Array(Base::Array(vec), shape))
+    }
+}
+
+
+struct ExtendVec<'a, T: 'a>(&'a mut Vec<T>);
+
+impl<'de, 'a, T> DeserializeSeed<'de> for ExtendVec<'a, T>
+where
+    T: Deserialize<'de>,
+{
+    // The return type of the `deserialize` method. This implementation
+    // appends onto an existing vector but does not create any new data
+    // structure, so the return type is ().
+    type Value = ();
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Visitor implementation that will walk an inner array of the JSON
+        // input.
+        struct ExtendVecVisitor<'a, T: 'a>(&'a mut Vec<T>);
+
+        impl<'de, 'a, T> Visitor<'de> for ExtendVecVisitor<'a, T>
+        where
+            T: Deserialize<'de>,
+        {
+            type Value = ();
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an array of integers")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                // Visit each element in the inner array and push it onto
+                // the existing vector.
+                while let Some(elem) = seq.next_element()? {
+                    self.0.push(elem);
                 }
+                Ok(())
             }
         }
-        let mut shape = vec![length];
-        match dim {
-            Some(dim) => {
-                shape.extend(dim);
-                Ok(Array(Base::Array(vec), Some(shape)))
-            }
-            None => Ok(Array(Base::Array(vec), Some(shape))),
-        }
+
+        deserializer.deserialize_seq(ExtendVecVisitor(self.0))
     }
 }
