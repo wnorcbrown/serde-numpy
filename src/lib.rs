@@ -27,7 +27,7 @@ impl NumpyDeserializer {
         let result = serde_json::from_slice(bytes);
         match result {
             Ok(structure_descriptor) => Ok(NumpyDeserializer{structure_descriptor}),
-            Err(err) => Err(PyErr::new::<PyIOError, _>("Invalid JSON in descriptor")) // better handling needed
+            Err(_) => Err(PyErr::new::<PyIOError, _>("Invalid JSON in descriptor")) // better handling needed
         }
 
     }

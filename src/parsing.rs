@@ -4,7 +4,7 @@ use serde;
 use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
 
-use pyo3::prelude::{IntoPy, PyErr, PyObject, Python};
+use pyo3::prelude::{IntoPy, PyErr, PyObject, Python, PyAny};
 use pyo3::types::PyType;
 use pyo3::FromPyObject;
 
@@ -27,10 +27,8 @@ impl InputTypes {
             &InputTypes::float32 => OutputTypes::F32(Array::new()),
             &InputTypes::int32 => OutputTypes::I32(Array::new()),
         }
-    } 
+    }
 }
-
-use pyo3::PyAny;
 
 impl<'source> FromPyObject<'source> for InputTypes {
     fn extract(object: &'source PyAny) -> Result<Self, PyErr> {
@@ -116,13 +114,10 @@ impl<'de> Visitor<'de> for StructureVisitor {
         if let Structure::Map(structure_map) = structure {
             while let Some(key) = map.next_key::<String>()? {
                 let value = match structure_map.get(&key) {
-                    Some(Structure::Type(InputTypes::int32)) => {
-                        OutputTypes::I32(map.next_value()?)
+                    Some(Structure::Type(input_type)) => match input_type {
+                        InputTypes::int32 => OutputTypes::I32(map.next_value()?),
+                        InputTypes::float32 => OutputTypes::F32(map.next_value()?)
                     }
-                    Some(Structure::Type(InputTypes::float32)) => {
-                        OutputTypes::F32(map.next_value()?)
-                    }
-
                     Some(Structure::List(sub_structure_list)) => {
                         let sub_structure = StructureDescriptor {
                             data: Structure::List(sub_structure_list.clone()),
