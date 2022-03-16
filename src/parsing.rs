@@ -81,7 +81,7 @@ impl IntoPy<PyObject> for OutputTypes {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(transparent)]
 pub struct StructureDescriptor {
     pub data: Structure,
