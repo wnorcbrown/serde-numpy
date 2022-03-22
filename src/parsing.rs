@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 
+use pyo3::exceptions::PyValueError;
 use serde;
 use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
@@ -16,16 +18,65 @@ use transpose_types::{TransposeMap, TransposeSeq};
 #[derive(Clone, Debug, Deserialize)]
 pub enum InputTypes {
     #[allow(non_camel_case_types)]
+    int8,
+    #[allow(non_camel_case_types)]
+    int16,
+    #[allow(non_camel_case_types)]
     int32,
     #[allow(non_camel_case_types)]
+    int64,
+
+    #[allow(non_camel_case_types)]
+    uint8,
+    #[allow(non_camel_case_types)]
+    uint16,
+    #[allow(non_camel_case_types)]
+    uint32,
+    #[allow(non_camel_case_types)]
+    uint64,
+
+    #[allow(non_camel_case_types)]
     float32,
+    #[allow(non_camel_case_types)]
+    float64,
 }
 
 impl InputTypes {
     fn get_output_type(&self) -> OutputTypes {
         match self {
-            &InputTypes::float32 => OutputTypes::F32(Array::new()),
+            &InputTypes::int8 => OutputTypes::I8(Array::new()),
+            &InputTypes::int16 => OutputTypes::I16(Array::new()),
             &InputTypes::int32 => OutputTypes::I32(Array::new()),
+            &InputTypes::int64 => OutputTypes::I64(Array::new()),
+
+            &InputTypes::uint8 => OutputTypes::U8(Array::new()),
+            &InputTypes::uint16 => OutputTypes::U16(Array::new()),
+            &InputTypes::uint32 => OutputTypes::U32(Array::new()),
+            &InputTypes::uint64 => OutputTypes::U64(Array::new()),
+
+            &InputTypes::float32 => OutputTypes::F32(Array::new()),
+            &InputTypes::float64 => OutputTypes::F64(Array::new()),
+        }
+    }
+}
+
+impl FromStr for InputTypes {
+    type Err = PyErr;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "int8" => Ok(InputTypes::int8),
+            "int16" => Ok(InputTypes::int16),
+            "int32" => Ok(InputTypes::int32),
+            "int64" => Ok(InputTypes::int64),
+
+            "uint8" => Ok(InputTypes::uint8),
+            "uint16" => Ok(InputTypes::uint16),
+            "uint32" => Ok(InputTypes::uint32),
+            "uint64" => Ok(InputTypes::uint16),
+
+            "float32" => Ok(InputTypes::float32),
+            "float64" => Ok(InputTypes::float64),
+            _ => Err(PyValueError::new_err(format!("unrecognised type {}", s)))
         }
     }
 }
@@ -34,19 +85,16 @@ impl<'source> FromPyObject<'source> for InputTypes {
     fn extract(object: &'source PyAny) -> Result<Self, PyErr> {
         if let Ok(pytype) = object.extract::<&'source PyType>() {
             match pytype.name() {
-                Ok("int32") => Ok(InputTypes::int32),
-                Ok("float32") => Ok(InputTypes::float32),
-                _ => panic!("unrecognised type"),
+                Ok(string) => InputTypes::from_str(string),
+                Err(err) => Err(err)
             }
         } else if let Ok(string) = object.extract::<&'source str>() {
-            match string {
-                "int32" => Ok(InputTypes::int32),
-                "float32" => Ok(InputTypes::float32),
-                _ => panic!("unrecognised type"),
-            }
+            InputTypes::from_str(string)
         } else {
-            panic!("cannot parse as InputType {:?}", object)
+            Err(PyValueError::new_err(format!("cannot parse {} as numpy type", object)))
         }
+
+
     }
 }
 
@@ -62,8 +110,19 @@ pub enum Structure {
 
 #[derive(Debug, PartialEq)]
 pub enum OutputTypes {
+    I8(Array<i8>),
+    I16(Array<i16>),
     I32(Array<i32>),
+    I64(Array<i64>),
+
+    U8(Array<u8>),
+    U16(Array<u16>),
+    U32(Array<u32>),
+    U64(Array<u64>),
+
     F32(Array<f32>),
+    F64(Array<f64>),
+
     List(Vec<OutputTypes>),
     Map(HashMap<String, OutputTypes>),
 }
@@ -71,8 +130,19 @@ pub enum OutputTypes {
 impl IntoPy<PyObject> for OutputTypes {
     fn into_py(self, py: Python) -> PyObject {
         match self {
+            OutputTypes::I8(v) => v.into_py(py),
+            OutputTypes::I16(v) => v.into_py(py),
             OutputTypes::I32(v) => v.into_py(py),
+            OutputTypes::I64(v) => v.into_py(py),
+
+            OutputTypes::U8(v) => v.into_py(py),
+            OutputTypes::U16(v) => v.into_py(py),
+            OutputTypes::U32(v) => v.into_py(py),
+            OutputTypes::U64(v) => v.into_py(py),
+
             OutputTypes::F32(v) => v.into_py(py),
+            OutputTypes::F64(v) => v.into_py(py),
+
             OutputTypes::List(v) => v.into_py(py),
             OutputTypes::Map(v) => v.into_py(py),
         }
@@ -115,9 +185,19 @@ impl<'de> Visitor<'de> for StructureVisitor {
             while let Some(key) = map.next_key::<String>()? {
                 let value = match structure_map.get(&key) {
                     Some(Structure::Type(input_type)) => match input_type {
+                        InputTypes::int8 => OutputTypes::I8(map.next_value()?),
+                        InputTypes::int16 => OutputTypes::I16(map.next_value()?),
                         InputTypes::int32 => OutputTypes::I32(map.next_value()?),
+                        InputTypes::int64 => OutputTypes::I64(map.next_value()?),
+
+                        InputTypes::uint8 => OutputTypes::U8(map.next_value()?),
+                        InputTypes::uint16 => OutputTypes::U16(map.next_value()?),
+                        InputTypes::uint32 => OutputTypes::U32(map.next_value()?),
+                        InputTypes::uint64 => OutputTypes::U64(map.next_value()?),
+
                         InputTypes::float32 => OutputTypes::F32(map.next_value()?),
-                    },
+                        InputTypes::float64 => OutputTypes::F64(map.next_value()?),
+                        },
                     Some(Structure::List(sub_structure_list)) => {
                         let sub_structure = StructureDescriptor {
                             data: Structure::List(sub_structure_list.clone()),
@@ -143,7 +223,7 @@ impl<'de> Visitor<'de> for StructureVisitor {
                         };
                         map.next_value_seed(sub_structure)?
                     }
-                    _ => panic!(""),
+                    None => continue,
                 };
                 out.insert(key, value);
             }
@@ -161,10 +241,21 @@ impl<'de> Visitor<'de> for StructureVisitor {
         if let Structure::List(structure_list) = structure {
             let mut out = Vec::<OutputTypes>::new();
             for input_type in structure_list {
-                match input_type {
-                    InputTypes::int32 => out.push(OutputTypes::I32(seq.next_element()?.unwrap())),
-                    InputTypes::float32 => out.push(OutputTypes::F32(seq.next_element()?.unwrap())),
-                }
+                let output_type = match input_type {
+                    InputTypes::int8 => OutputTypes::I8(seq.next_element()?.unwrap()),
+                    InputTypes::int16 => OutputTypes::I16(seq.next_element()?.unwrap()),
+                    InputTypes::int32 => OutputTypes::I32(seq.next_element()?.unwrap()),
+                    InputTypes::int64 => OutputTypes::I64(seq.next_element()?.unwrap()),
+
+                    InputTypes::uint8 => OutputTypes::U8(seq.next_element()?.unwrap()),
+                    InputTypes::uint16 => OutputTypes::U16(seq.next_element()?.unwrap()),
+                    InputTypes::uint32 => OutputTypes::U32(seq.next_element()?.unwrap()),
+                    InputTypes::uint64 => OutputTypes::U64(seq.next_element()?.unwrap()),
+
+                    InputTypes::float32 => OutputTypes::F32(seq.next_element()?.unwrap()),
+                    InputTypes::float64 => OutputTypes::F64(seq.next_element()?.unwrap()),
+                };
+                out.push(output_type)
             }
             Ok(OutputTypes::List(out))
         } else if let Structure::ListofList(structure_lol) = structure {

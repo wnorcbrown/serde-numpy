@@ -1,5 +1,4 @@
-use ::pyo3::exceptions::PyIOError;
-use ::pyo3::PyErr;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{pyclass, pymethods, pymodule, IntoPy, PyModule, PyObject, PyResult, Python};
 use pyo3::types::PyType;
 
@@ -28,7 +27,7 @@ impl NumpyDeserializer {
             Ok(structure_descriptor) => Ok(NumpyDeserializer {
                 structure_descriptor,
             }),
-            Err(_) => Err(PyErr::new::<PyIOError, _>("Invalid JSON in descriptor")), // better handling needed
+            Err(err) => Err(PyValueError::new_err(format!("Error parsing structure bytes {}", err))), // better handling needed
         }
     }
 
@@ -40,7 +39,7 @@ impl NumpyDeserializer {
             .deserialize(&mut serde_json::Deserializer::from_slice(json_str));
         match result {
             Ok(value) => Ok(value.into_py(py)),
-            Err(_err) => return Err(PyErr::new::<PyIOError, _>("Invalid JSON")),
+            Err(err) => Err(PyValueError::new_err(format!("Error deserializing json {}", err))),
         }
     }
 }

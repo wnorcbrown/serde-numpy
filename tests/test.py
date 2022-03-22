@@ -2,7 +2,12 @@ import pytest
 
 from typing import Any
 import numpy as np
-from serde_numpy import deserialize
+from serde_numpy import NumpyDeserializer
+
+
+def deserialize(json_str: bytes, structure: dict):
+    deserializer = NumpyDeserializer.from_dict(structure)
+    return deserializer.deserialize_json(json_str)
 
 
 def assert_same_structure(dict_1: dict, dict_2: dict):

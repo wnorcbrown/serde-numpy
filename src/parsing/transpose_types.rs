@@ -33,8 +33,18 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
         let out: &mut Vec<OutputTypes> = self.0 .0;
         for output_type in out.iter_mut() {
             match output_type {
+                OutputTypes::I8(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::I16(arr) => arr.push(seq.next_element()?.unwrap()),
                 OutputTypes::I32(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::I64(arr) => arr.push(seq.next_element()?.unwrap()),
+
+                OutputTypes::U8(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::U16(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::U32(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::U64(arr) => arr.push(seq.next_element()?.unwrap()),
+
                 OutputTypes::F32(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::F64(arr) => arr.push(seq.next_element()?.unwrap()),
                 _ => panic!(
                     "other variants shoudn't be able to occur because of logic in StructureVisitor"
                 ),
@@ -74,8 +84,18 @@ impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
         while let Some(key) = map.next_key::<String>()? {
             if let Some(output_type) = out.get_mut(&key) {
                 match output_type {
+                    OutputTypes::I8(arr) => arr.push(map.next_value()?),
+                    OutputTypes::I16(arr) => arr.push(map.next_value()?),
                     OutputTypes::I32(arr) => arr.push(map.next_value()?),
+                    OutputTypes::I64(arr) => arr.push(map.next_value()?),
+
+                    OutputTypes::U8(arr) => arr.push(map.next_value()?),
+                    OutputTypes::U16(arr) => arr.push(map.next_value()?),
+                    OutputTypes::U32(arr) => arr.push(map.next_value()?),
+                    OutputTypes::U64(arr) => arr.push(map.next_value()?),
+
                     OutputTypes::F32(arr) => arr.push(map.next_value()?),
+                    OutputTypes::F64(arr) => arr.push(map.next_value()?),
                     _ => panic!(
                         "other variants shoudn't be able to occur because of logic in StructureVisitor"
                     ),
