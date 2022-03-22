@@ -4,7 +4,7 @@ use serde;
 use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
 
-use pyo3::prelude::{IntoPy, PyErr, PyObject, Python, PyAny};
+use pyo3::prelude::{IntoPy, PyAny, PyErr, PyObject, Python};
 use pyo3::types::PyType;
 use pyo3::FromPyObject;
 
@@ -116,8 +116,8 @@ impl<'de> Visitor<'de> for StructureVisitor {
                 let value = match structure_map.get(&key) {
                     Some(Structure::Type(input_type)) => match input_type {
                         InputTypes::int32 => OutputTypes::I32(map.next_value()?),
-                        InputTypes::float32 => OutputTypes::F32(map.next_value()?)
-                    }
+                        InputTypes::float32 => OutputTypes::F32(map.next_value()?),
+                    },
                     Some(Structure::List(sub_structure_list)) => {
                         let sub_structure = StructureDescriptor {
                             data: Structure::List(sub_structure_list.clone()),
@@ -162,21 +162,15 @@ impl<'de> Visitor<'de> for StructureVisitor {
             let mut out = Vec::<OutputTypes>::new();
             for input_type in structure_list {
                 match input_type {
-                    InputTypes::int32 => {
-                        out.push(OutputTypes::I32(seq.next_element()?.unwrap()))
-                    }
-                    InputTypes::float32 => {
-                        out.push(OutputTypes::F32(seq.next_element()?.unwrap()))
-                    }
+                    InputTypes::int32 => out.push(OutputTypes::I32(seq.next_element()?.unwrap())),
+                    InputTypes::float32 => out.push(OutputTypes::F32(seq.next_element()?.unwrap())),
                 }
             }
             Ok(OutputTypes::List(out))
         } else if let Structure::ListofList(structure_lol) = structure {
             let mut out: Vec<OutputTypes> = structure_lol[0]
                 .iter()
-                .map(|input_type| -> OutputTypes {
-                    input_type.get_output_type()
-                })
+                .map(|input_type| -> OutputTypes { input_type.get_output_type() })
                 .collect();
             let mut transpose_vecs = TransposeSeq(&mut out);
             loop {
@@ -256,10 +250,7 @@ mod tests {
             ),
             (
                 "int_arr2D".to_string(),
-                OutputTypes::I32(Array(
-                    Base::Array(vec![1, 2, 3, 4, 5, 6]),
-                    Some(vec![3, 2]),
-                )),
+                OutputTypes::I32(Array(Base::Array(vec![1, 2, 3, 4, 5, 6]), Some(vec![3, 2]))),
             ),
             (
                 "int_arr3D".to_string(),
@@ -302,10 +293,8 @@ mod tests {
             .deserialize(&mut serde_json::Deserializer::from_str(json))
             .unwrap();
 
-        let int_arr = OutputTypes::I32(Array(
-            Base::Array(vec![1, 2, 3, 4, 5, 6]),
-            Some(vec![3, 2]),
-        ));
+        let int_arr =
+            OutputTypes::I32(Array(Base::Array(vec![1, 2, 3, 4, 5, 6]), Some(vec![3, 2])));
 
         let float_arr = OutputTypes::F32(Array(Base::Array(vec![6.7, 7.8]), Some(vec![2])));
 
@@ -347,10 +336,7 @@ mod tests {
             (
                 "arr1".to_string(),
                 OutputTypes::List(vec![
-                    OutputTypes::I32(Array(
-                        Base::Array(vec![1, 2, 3, 4, 5, 6]),
-                        Some(vec![3, 2]),
-                    )),
+                    OutputTypes::I32(Array(Base::Array(vec![1, 2, 3, 4, 5, 6]), Some(vec![3, 2]))),
                     OutputTypes::F32(Array(Base::Array(vec![6.7, 7.8]), Some(vec![2]))),
                 ]),
             ),
@@ -391,10 +377,7 @@ mod tests {
             "arr1".to_string(),
             OutputTypes::List(vec![
                 OutputTypes::I32(Array(Base::Array(vec![1, 3, 5, 6]), Some(vec![4]))),
-                OutputTypes::F32(Array(
-                    Base::Array(vec![2.1, 4.3, 6.5, 7.8]),
-                    Some(vec![4]),
-                )),
+                OutputTypes::F32(Array(Base::Array(vec![2.1, 4.3, 6.5, 7.8]), Some(vec![4]))),
             ]),
         )]));
 
@@ -431,10 +414,7 @@ mod tests {
                 ),
                 (
                     "b".to_string(),
-                    OutputTypes::F32(Array(
-                        Base::Array(vec![2.1, 4.3, 6.5, 7.8]),
-                        Some(vec![4]),
-                    )),
+                    OutputTypes::F32(Array(Base::Array(vec![2.1, 4.3, 6.5, 7.8]), Some(vec![4]))),
                 ),
             ])),
         )]));

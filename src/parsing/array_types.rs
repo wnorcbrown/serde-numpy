@@ -1,12 +1,9 @@
-use std::marker::PhantomData;
-use std::fmt;
-
 use serde::de;
-use serde::de::{SeqAccess, Visitor, DeserializeSeed, Deserializer};
+use serde::de::{DeserializeSeed, Deserializer, SeqAccess, Visitor};
 use serde::Deserialize;
 
-use num_traits::cast::FromPrimitive;
 use ndarray::ShapeBuilder;
+use num_traits::cast::FromPrimitive;
 use numpy::IntoPyArray;
 use pyo3::prelude::*;
 
@@ -55,201 +52,212 @@ impl<T> Array<T> {
     }
 }
 
-impl<'de, T: FromPrimitive + Deserialize<'de>> Deserialize<'de> for Array<T> {
+impl<'de, T: FromPrimitive + Clone + Deserialize<'de>> Deserialize<'de> for Array<T> {
     fn deserialize<D>(deserializer: D) -> Result<Array<T>, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_any(BaseVisitor::<T>(PhantomData))
+        let mut values = Vec::<T>::new();
+        let mut shape = Vec::new();
+        let builder = ArrayBuilder {
+            values: &mut values,
+            shape: &mut shape,
+            compute_shape: true,
+        };
+        let visitor = ExtendVecVisitor(builder);
+        deserializer.deserialize_any(visitor)?;
+        match shape.len() {
+            0 => Ok(Array(Base::Scalar(values[0].clone()), None)),
+            _ => Ok(Array(Base::Array(values), Some(shape.into_iter().rev().collect()))),
+        }
     }
 }
 
+struct ArrayBuilder<'a, T: 'a> {
+    values: &'a mut Vec<T>,
+    shape: &'a mut Vec<usize>,
+    compute_shape: bool,
+}
 
-
-struct BaseVisitor<T>(PhantomData<T>);
-
-impl<'de, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for BaseVisitor<T> 
+impl<'de, 'a, T> DeserializeSeed<'de> for ArrayBuilder<'a, T>
+where
+    T: FromPrimitive + Deserialize<'de>,
 {
-    type Value = Array<T>;
-    
+    type Value = ();
+    fn deserialize<D>(mut self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let builder = ArrayBuilder {
+            values: &mut self.values,
+            shape: &mut self.shape,
+            compute_shape: self.compute_shape,
+        };
+        deserializer.deserialize_any(ExtendVecVisitor(builder))?;
+        Ok(())
+    }
+}
+
+struct ExtendVecVisitor<'a, T: 'a>(ArrayBuilder<'a, T>);
+
+impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVisitor<'a, T> {
+    type Value = ();
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("array of numbers of the same dtype")
     }
+
     #[inline]
     fn visit_f32<E: de::Error>(self, value: f32) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_f32(value) {
-            Ok(Array(Base::Scalar(scalar), None))
-        }
-        else {
-            Err(E::custom(format!("Could not cast {} (f32) into: {:?}", value, std::any::type_name::<T>())))
+            Ok(self.0.values.push(scalar))
+        } else {
+            Err(E::custom(format!(
+                "Could not cast {} (f32) into: {:?}",
+                value,
+                std::any::type_name::<T>()
+            )))
         }
     }
     #[inline]
     fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_f64(value) {
-            Ok(Array(Base::Scalar(scalar), None))
-        }
-        else {
-            Err(E::custom(format!("Could not cast {} (f64) into: {:?}", value, std::any::type_name::<T>())))
+            Ok(self.0.values.push(scalar))
+        } else {
+            Err(E::custom(format!(
+                "Could not cast {} (f64) into: {:?}",
+                value,
+                std::any::type_name::<T>()
+            )))
         }
     }
     #[inline]
     fn visit_i8<E: de::Error>(self, value: i8) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_i8(value) {
-            Ok(Array(Base::Scalar(scalar), None))
-        }
-        else {
-            Err(E::custom(format!("Could not cast {} (i8) into: {:?}", value, std::any::type_name::<T>())))
+            Ok(self.0.values.push(scalar))
+        } else {
+            Err(E::custom(format!(
+                "Could not cast {} (i8) into: {:?}",
+                value,
+                std::any::type_name::<T>()
+            )))
         }
     }
     #[inline]
     fn visit_i16<E: de::Error>(self, value: i16) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_i16(value) {
-            Ok(Array(Base::Scalar(scalar), None))
-        }
-        else {
-            Err(E::custom(format!("Could not cast {} (i16) into: {:?}", value, std::any::type_name::<T>())))
+            Ok(self.0.values.push(scalar))
+        } else {
+            Err(E::custom(format!(
+                "Could not cast {} (i16) into: {:?}",
+                value,
+                std::any::type_name::<T>()
+            )))
         }
     }
     #[inline]
     fn visit_i32<E: de::Error>(self, value: i32) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_i32(value) {
-            Ok(Array(Base::Scalar(scalar), None))
-        }
-        else {
-            Err(E::custom(format!("Could not cast {} (i32) into: {:?}", value, std::any::type_name::<T>())))
+            Ok(self.0.values.push(scalar))
+        } else {
+            Err(E::custom(format!(
+                "Could not cast {} (i32) into: {:?}",
+                value,
+                std::any::type_name::<T>()
+            )))
         }
     }
     #[inline]
     fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_i64(value) {
-            Ok(Array(Base::Scalar(scalar), None))
-        }
-        else {
-            Err(E::custom(format!("Could not cast {} (i64) into: {:?}", value, std::any::type_name::<T>())))
+            Ok(self.0.values.push(scalar))
+        } else {
+            Err(E::custom(format!(
+                "Could not cast {} (i64) into: {:?}",
+                value,
+                std::any::type_name::<T>()
+            )))
         }
     }
     #[inline]
     fn visit_u8<E: de::Error>(self, value: u8) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_u8(value) {
-            Ok(Array(Base::Scalar(scalar), None))
-        }
-        else {
-            Err(E::custom(format!("Could not cast {} (u8) into: {:?}", value, std::any::type_name::<T>())))
+            Ok(self.0.values.push(scalar))
+        } else {
+            Err(E::custom(format!(
+                "Could not cast {} (u8) into: {:?}",
+                value,
+                std::any::type_name::<T>()
+            )))
         }
     }
     #[inline]
     fn visit_u16<E: de::Error>(self, value: u16) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_u16(value) {
-            Ok(Array(Base::Scalar(scalar), None))
-        }
-        else {
-            Err(E::custom(format!("Could not cast {} (u16) into: {:?}", value, std::any::type_name::<T>())))
+            Ok(self.0.values.push(scalar))
+        } else {
+            Err(E::custom(format!(
+                "Could not cast {} (u16) into: {:?}",
+                value,
+                std::any::type_name::<T>()
+            )))
         }
     }
     #[inline]
     fn visit_u32<E: de::Error>(self, value: u32) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_u32(value) {
-            Ok(Array(Base::Scalar(scalar), None))
-        }
-        else {
-            Err(E::custom(format!("Could not cast {} (u32) into: {:?}", value, std::any::type_name::<T>())))
+            Ok(self.0.values.push(scalar))
+        } else {
+            Err(E::custom(format!(
+                "Could not cast {} (u32) into: {:?}",
+                value,
+                std::any::type_name::<T>()
+            )))
         }
     }
     #[inline]
     fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
         if let Some(scalar) = FromPrimitive::from_u64(value) {
-            Ok(Array(Base::Scalar(scalar), None))
-        }
-        else {
-            Err(E::custom(format!("Could not cast {} (u64) into: {:?}", value, std::any::type_name::<T>())))
+            Ok(self.0.values.push(scalar))
+        } else {
+            Err(E::custom(format!(
+                "Could not cast {} (u64) into: {:?}",
+                value,
+                std::any::type_name::<T>()
+            )))
         }
     }
     
-    fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
+    fn visit_seq<S>(mut self, mut seq: S) -> Result<Self::Value, S::Error>
     where
         S: SeqAccess<'de>,
     {
-        let mut vec = Vec::<T>::new();
-        // let mut dim = None;
-        // let mut length = 0;
-        // while let Some(elem) = seq.next_element::<Array<T>>()? {
-        //     length += 1;
-        //     match elem.0 {
-        //         Base::Scalar(val) => vec.push(val),
-        //         Base::Array(arr) => {
-        //             vec.extend(arr.into_iter());
-        //             if dim.is_none() {
-        //                 dim = elem.1;
-        //             }
-        //         }
-        //     }
-        // }
-        // let mut shape = vec![length];
-        // match dim {
-        //     Some(dim) => {
-        //         shape.extend(dim);
-        //         Ok(Array(Base::Array(vec), Some(shape)))
-        //     }
-        //     None => Ok(Array(Base::Array(vec), Some(shape))),
-        // }
+        if self.0.compute_shape {
+            let mut outer_size: usize = 0;
+            let mut compute_shape: bool = true;
 
-        // Each iteration through this loop is one inner array.
-        let mut outer_size: usize = 0;
-        while let Some(()) = seq.next_element_seed(ExtendVec(&mut vec))? {
-            outer_size += 1;
-        }
-
-        // Return the finished vec.
-        let shape = Some(vec![outer_size, vec.len() / outer_size]);
-        Ok(Array(Base::Array(vec), shape))
-    }
-}
-
-
-struct ExtendVec<'a, T: 'a>(&'a mut Vec<T>);
-
-impl<'de, 'a, T> DeserializeSeed<'de> for ExtendVec<'a, T>
-where
-    T: Deserialize<'de>,
-{
-    // The return type of the `deserialize` method. This implementation
-    // appends onto an existing vector but does not create any new data
-    // structure, so the return type is ().
-    type Value = ();
-
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        // Visitor implementation that will walk an inner array of the JSON
-        // input.
-        struct ExtendVecVisitor<'a, T: 'a>(&'a mut Vec<T>);
-
-        impl<'de, 'a, T> Visitor<'de> for ExtendVecVisitor<'a, T>
-        where
-            T: Deserialize<'de>,
-        {
-            type Value = ();
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "an array of integers")
+            while let Some(_) = seq.next_element_seed(ArrayBuilder {
+                values: &mut self.0.values,
+                shape: &mut self.0.shape,
+                compute_shape: compute_shape,
+            })? {
+                outer_size += 1;
+                compute_shape = false;
             }
 
-            fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                // Visit each element in the inner array and push it onto
-                // the existing vector.
-                while let Some(elem) = seq.next_element()? {
-                    self.0.push(elem);
-                }
-                Ok(())
-            }
-        }
+            self.0.shape.push(outer_size);
 
-        deserializer.deserialize_seq(ExtendVecVisitor(self.0))
+            Ok(())
+        } else {
+
+            while let Some(_) = seq.next_element_seed(ArrayBuilder {
+                values: &mut self.0.values,
+                shape: &mut self.0.shape,
+                compute_shape: false,
+            })? {
+                
+            }
+            Ok(())
+        }
     }
 }
