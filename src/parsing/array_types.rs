@@ -68,7 +68,10 @@ impl<'de, T: FromPrimitive + Clone + Deserialize<'de>> Deserialize<'de> for Arra
         deserializer.deserialize_any(visitor)?;
         match shape.len() {
             0 => Ok(Array(Base::Scalar(values[0].clone()), None)),
-            _ => Ok(Array(Base::Array(values), Some(shape.into_iter().rev().collect()))),
+            _ => Ok(Array(
+                Base::Array(values),
+                Some(shape.into_iter().rev().collect()),
+            )),
         }
     }
 }
@@ -227,7 +230,7 @@ impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVis
             )))
         }
     }
-    
+
     fn visit_seq<S>(mut self, mut seq: S) -> Result<Self::Value, S::Error>
     where
         S: SeqAccess<'de>,
@@ -249,14 +252,11 @@ impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVis
 
             Ok(())
         } else {
-
             while let Some(_) = seq.next_element_seed(ArrayBuilder {
                 values: &mut self.0.values,
                 shape: &mut self.0.shape,
                 compute_shape: false,
-            })? {
-                
-            }
+            })? {}
             Ok(())
         }
     }

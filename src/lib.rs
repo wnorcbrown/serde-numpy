@@ -27,7 +27,10 @@ impl NumpyDeserializer {
             Ok(structure_descriptor) => Ok(NumpyDeserializer {
                 structure_descriptor,
             }),
-            Err(err) => Err(PyValueError::new_err(format!("Error parsing structure bytes {}", err))), // better handling needed
+            Err(err) => Err(PyValueError::new_err(format!(
+                "Error parsing structure bytes {}",
+                err
+            ))), // better handling needed
         }
     }
 
@@ -39,7 +42,10 @@ impl NumpyDeserializer {
             .deserialize(&mut serde_json::Deserializer::from_slice(json_str));
         match result {
             Ok(value) => Ok(value.into_py(py)),
-            Err(err) => Err(PyValueError::new_err(format!("Error deserializing json {}", err))),
+            Err(err) => Err(PyValueError::new_err(format!(
+                "Error deserializing json {}",
+                err
+            ))),
         }
     }
 }

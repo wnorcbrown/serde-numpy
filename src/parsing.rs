@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use pyo3::exceptions::PyValueError;
 use serde;
-use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
+use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor, IgnoredAny};
 use serde::Deserialize;
 
 use pyo3::prelude::{IntoPy, PyAny, PyErr, PyObject, Python};
@@ -42,7 +42,7 @@ pub enum InputTypes {
 }
 
 impl InputTypes {
-    fn get_output_type(&self) -> OutputTypes {
+    fn get_new_output_type(&self) -> OutputTypes {
         match self {
             &InputTypes::int8 => OutputTypes::I8(Array::new()),
             &InputTypes::int16 => OutputTypes::I16(Array::new()),
@@ -76,7 +76,7 @@ impl FromStr for InputTypes {
 
             "float32" => Ok(InputTypes::float32),
             "float64" => Ok(InputTypes::float64),
-            _ => Err(PyValueError::new_err(format!("unrecognised type {}", s)))
+            _ => Err(PyValueError::new_err(format!("unrecognised type {}", s))),
         }
     }
 }
@@ -86,15 +86,16 @@ impl<'source> FromPyObject<'source> for InputTypes {
         if let Ok(pytype) = object.extract::<&'source PyType>() {
             match pytype.name() {
                 Ok(string) => InputTypes::from_str(string),
-                Err(err) => Err(err)
+                Err(err) => Err(err),
             }
         } else if let Ok(string) = object.extract::<&'source str>() {
             InputTypes::from_str(string)
         } else {
-            Err(PyValueError::new_err(format!("cannot parse {} as numpy type", object)))
+            Err(PyValueError::new_err(format!(
+                "cannot parse {} as numpy type",
+                object
+            )))
         }
-
-
     }
 }
 
@@ -197,7 +198,7 @@ impl<'de> Visitor<'de> for StructureVisitor {
 
                         InputTypes::float32 => OutputTypes::F32(map.next_value()?),
                         InputTypes::float64 => OutputTypes::F64(map.next_value()?),
-                        },
+                    },
                     Some(Structure::List(sub_structure_list)) => {
                         let sub_structure = StructureDescriptor {
                             data: Structure::List(sub_structure_list.clone()),
@@ -223,7 +224,10 @@ impl<'de> Visitor<'de> for StructureVisitor {
                         };
                         map.next_value_seed(sub_structure)?
                     }
-                    None => continue,
+                    None => {
+                        map.next_value::<serde::de::IgnoredAny>()?;
+                        continue;
+                    }
                 };
                 out.insert(key, value);
             }
@@ -237,31 +241,66 @@ impl<'de> Visitor<'de> for StructureVisitor {
     where
         S: SeqAccess<'de>,
     {
+        use serde::de::Error;
         let structure = self.0.data;
         if let Structure::List(structure_list) = structure {
             let mut out = Vec::<OutputTypes>::new();
+            let err_msg = "length of list structure longer than list in data";
             for input_type in structure_list {
                 let output_type = match input_type {
-                    InputTypes::int8 => OutputTypes::I8(seq.next_element()?.unwrap()),
-                    InputTypes::int16 => OutputTypes::I16(seq.next_element()?.unwrap()),
-                    InputTypes::int32 => OutputTypes::I32(seq.next_element()?.unwrap()),
-                    InputTypes::int64 => OutputTypes::I64(seq.next_element()?.unwrap()),
+                    InputTypes::int8 => OutputTypes::I8(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
+                    InputTypes::int16 => OutputTypes::I16(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
+                    InputTypes::int32 => OutputTypes::I32(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
+                    InputTypes::int64 => OutputTypes::I64(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
 
-                    InputTypes::uint8 => OutputTypes::U8(seq.next_element()?.unwrap()),
-                    InputTypes::uint16 => OutputTypes::U16(seq.next_element()?.unwrap()),
-                    InputTypes::uint32 => OutputTypes::U32(seq.next_element()?.unwrap()),
-                    InputTypes::uint64 => OutputTypes::U64(seq.next_element()?.unwrap()),
+                    InputTypes::uint8 => OutputTypes::U8(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
+                    InputTypes::uint16 => OutputTypes::U16(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
+                    InputTypes::uint32 => OutputTypes::U32(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
+                    InputTypes::uint64 => OutputTypes::U64(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
 
-                    InputTypes::float32 => OutputTypes::F32(seq.next_element()?.unwrap()),
-                    InputTypes::float64 => OutputTypes::F64(seq.next_element()?.unwrap()),
+                    InputTypes::float32 => OutputTypes::F32(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
+                    InputTypes::float64 => OutputTypes::F64(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
                 };
                 out.push(output_type)
+            }
+            while let Some(_) = seq.next_element::<IgnoredAny>()? {
+                // empty any remaining items from the list with unspecified types
             }
             Ok(OutputTypes::List(out))
         } else if let Structure::ListofList(structure_lol) = structure {
             let mut out: Vec<OutputTypes> = structure_lol[0]
                 .iter()
-                .map(|input_type| -> OutputTypes { input_type.get_output_type() })
+                .map(|input_type| -> OutputTypes { input_type.get_new_output_type() })
                 .collect();
             let mut transpose_vecs = TransposeSeq(&mut out);
             loop {
@@ -276,7 +315,7 @@ impl<'de> Visitor<'de> for StructureVisitor {
             let mut out: HashMap<String, OutputTypes> = structure_lom[0]
                 .iter()
                 .map(|(key, input_type)| -> (String, OutputTypes) {
-                    (key.clone(), input_type.get_output_type())
+                    (key.clone(), input_type.get_new_output_type())
                 })
                 .collect();
             let mut transpose_map = TransposeMap(&mut out);
