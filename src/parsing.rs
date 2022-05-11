@@ -1,44 +1,47 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use pyo3::exceptions::PyValueError;
 use serde;
-use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor, IgnoredAny};
+use serde::de::{DeserializeSeed, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
+use serde_json::{Number, Value};
 
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{IntoPy, PyAny, PyErr, PyObject, Python};
 use pyo3::types::PyType;
 use pyo3::FromPyObject;
 
 mod array_types;
+mod python_types;
 mod transpose_types;
 use array_types::Array;
+use python_types::PythonType;
 use transpose_types::{TransposeMap, TransposeSeq};
 
 #[derive(Clone, Debug, Deserialize)]
+#[allow(non_camel_case_types)]
 pub enum InputTypes {
-    #[allow(non_camel_case_types)]
     int8,
-    #[allow(non_camel_case_types)]
     int16,
-    #[allow(non_camel_case_types)]
     int32,
-    #[allow(non_camel_case_types)]
     int64,
 
-    #[allow(non_camel_case_types)]
     uint8,
-    #[allow(non_camel_case_types)]
     uint16,
-    #[allow(non_camel_case_types)]
     uint32,
-    #[allow(non_camel_case_types)]
     uint64,
 
-    #[allow(non_camel_case_types)]
     float32,
-    #[allow(non_camel_case_types)]
     float64,
+
+    int,
+    float,
+    str,
+    bool,
+
+    list,
+    dict,
+    any,
 }
 
 impl InputTypes {
@@ -56,6 +59,8 @@ impl InputTypes {
 
             &InputTypes::float32 => OutputTypes::F32(Array::new()),
             &InputTypes::float64 => OutputTypes::F64(Array::new()),
+
+            _ => panic!(),
         }
     }
 }
@@ -76,6 +81,15 @@ impl FromStr for InputTypes {
 
             "float32" => Ok(InputTypes::float32),
             "float64" => Ok(InputTypes::float64),
+
+            "int" => Ok(InputTypes::int),
+            "float" => Ok(InputTypes::float),
+            "str" => Ok(InputTypes::str),
+            "bool" => Ok(InputTypes::bool),
+
+            "list" => Ok(InputTypes::list),
+            "dict" => Ok(InputTypes::dict),
+            "any" => Ok(InputTypes::any),
             _ => Err(PyValueError::new_err(format!("unrecognised type {}", s))),
         }
     }
@@ -126,6 +140,8 @@ pub enum OutputTypes {
 
     List(Vec<OutputTypes>),
     Map(HashMap<String, OutputTypes>),
+
+    PythonType(PythonType),
 }
 
 impl IntoPy<PyObject> for OutputTypes {
@@ -146,6 +162,8 @@ impl IntoPy<PyObject> for OutputTypes {
 
             OutputTypes::List(v) => v.into_py(py),
             OutputTypes::Map(v) => v.into_py(py),
+
+            OutputTypes::PythonType(v) => v.into_py(py),
         }
     }
 }
@@ -198,6 +216,20 @@ impl<'de> Visitor<'de> for StructureVisitor {
 
                         InputTypes::float32 => OutputTypes::F32(map.next_value()?),
                         InputTypes::float64 => OutputTypes::F64(map.next_value()?),
+
+                        InputTypes::int => {
+                            OutputTypes::PythonType(PythonType(Value::Number(map.next_value()?)))
+                        } // Need to properly map ints and floats to raise error
+                        InputTypes::float => {
+                            OutputTypes::PythonType(PythonType(Value::Number(map.next_value()?)))
+                        }
+                        InputTypes::bool => {
+                            OutputTypes::PythonType(PythonType(Value::Bool(map.next_value()?)))
+                        }
+                        InputTypes::str => {
+                            OutputTypes::PythonType(PythonType(Value::String(map.next_value()?)))
+                        }
+                        _ => OutputTypes::PythonType(map.next_value()?),
                     },
                     Some(Structure::List(sub_structure_list)) => {
                         let sub_structure = StructureDescriptor {
@@ -288,6 +320,28 @@ impl<'de> Visitor<'de> for StructureVisitor {
                     ),
                     InputTypes::float64 => OutputTypes::F64(
                         seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
+
+                    InputTypes::int => OutputTypes::PythonType(PythonType(Value::Number(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ))), // Need to properly map ints and floats to raise error
+                    InputTypes::float => OutputTypes::PythonType(PythonType(Value::Number(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ))),
+                    InputTypes::bool => OutputTypes::PythonType(PythonType(Value::Bool(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ))),
+                    InputTypes::str => OutputTypes::PythonType(PythonType(Value::String(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ))),
+
+                    _ => OutputTypes::PythonType(
+                        seq.next_element::<PythonType>()?
                             .ok_or_else(|| S::Error::custom(err_msg))?,
                     ),
                 };

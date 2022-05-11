@@ -1,4 +1,4 @@
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyValueError, PyTypeError};
 use pyo3::prelude::{pyclass, pymethods, pymodule, IntoPy, PyModule, PyObject, PyResult, Python};
 use pyo3::types::PyType;
 
@@ -42,7 +42,7 @@ impl NumpyDeserializer {
             .deserialize(&mut serde_json::Deserializer::from_slice(json_str));
         match result {
             Ok(value) => Ok(value.into_py(py)),
-            Err(err) => Err(PyValueError::new_err(format!(
+            Err(err) => Err(PyTypeError::new_err(format!(
                 "Error deserializing json {}",
                 err
             ))),
