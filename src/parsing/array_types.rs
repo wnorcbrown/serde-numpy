@@ -261,3 +261,142 @@ impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVis
         }
     }
 }
+
+
+
+
+// The following is a seperate implementation for boolean arrays - BoolArray - because num_traits is not implemented for booleans
+// The implementation should remain equivalent to the above generic implementation
+
+
+
+#[derive(Debug, PartialEq)]
+pub struct BoolArray(pub Base<bool>, pub Option<Vec<usize>>);
+
+impl IntoPy<PyObject> for BoolArray {
+    fn into_py(self, py: Python) -> PyObject {
+        match self {
+            BoolArray(Base::<bool>::Scalar(val), _) => val.into_py(py),
+            BoolArray(Base::<bool>::Array(arr), shape) => {
+                ndarray::ArrayBase::from_shape_vec(shape.unwrap().into_shape(), arr)
+                    .unwrap()
+                    .into_pyarray(py)
+                    .into_py(py)
+            }
+        }
+    }
+}
+
+impl BoolArray {
+    pub fn new() -> BoolArray {
+        BoolArray(Base::Array(vec![]), Some(vec![0]))
+    }
+
+    pub fn push(&mut self, arr: BoolArray) {
+        match arr.0 {
+            Base::Scalar(value) => match self {
+                BoolArray(Base::Array(ref mut vec), Some(ref mut shape)) => {
+                    vec.push(value);
+                    if shape.len() != 1 {
+                        panic!("not working for non 1D arrays")
+                    };
+                    shape[0] += 1
+                }
+                _ => panic!("not implemented"),
+            },
+            _ => panic!("not implemented"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for BoolArray {
+    fn deserialize<D>(deserializer: D) -> Result<BoolArray, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut values = Vec::<bool>::new();
+        let mut shape = Vec::new();
+        let builder = BoolArrayBuilder {
+            values: &mut values,
+            shape: &mut shape,
+            compute_shape: true,
+        };
+        let visitor = BoolExtendVecVisitor(builder);
+        deserializer.deserialize_any(visitor)?;
+        match shape.len() {
+            0 => Ok(BoolArray(Base::Scalar(values[0].clone()), None)),
+            _ => Ok(BoolArray(
+                Base::Array(values),
+                Some(shape.into_iter().rev().collect()),
+            )),
+        }
+    }
+}
+
+struct BoolArrayBuilder<'a> {
+    values: &'a mut Vec<bool>,
+    shape: &'a mut Vec<usize>,
+    compute_shape: bool,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for BoolArrayBuilder<'a>
+{
+    type Value = ();
+    fn deserialize<D>(mut self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let builder = BoolArrayBuilder {
+            values: &mut self.values,
+            shape: &mut self.shape,
+            compute_shape: self.compute_shape,
+        };
+        deserializer.deserialize_any(BoolExtendVecVisitor(builder))?;
+        Ok(())
+    }
+}
+
+struct BoolExtendVecVisitor<'a>(BoolArrayBuilder<'a>);
+
+impl<'de, 'a> Visitor<'de> for BoolExtendVecVisitor<'a> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("array of numbers of the same dtype")
+    }
+
+    #[inline]
+    fn visit_bool<E: de::Error>(self, value: bool) -> Result<Self::Value, E> {
+        Ok(self.0.values.push(value))
+    }
+
+    fn visit_seq<S>(mut self, mut seq: S) -> Result<Self::Value, S::Error>
+    where
+        S: SeqAccess<'de>,
+    {
+        if self.0.compute_shape {
+            let mut outer_size: usize = 0;
+            let mut compute_shape: bool = true;
+
+            while let Some(_) = seq.next_element_seed(BoolArrayBuilder {
+                values: &mut self.0.values,
+                shape: &mut self.0.shape,
+                compute_shape: compute_shape,
+            })? {
+                outer_size += 1;
+                compute_shape = false;
+            }
+
+            self.0.shape.push(outer_size);
+
+            Ok(())
+        } else {
+            while let Some(_) = seq.next_element_seed(BoolArrayBuilder {
+                values: &mut self.0.values,
+                shape: &mut self.0.shape,
+                compute_shape: false,
+            })? {}
+            Ok(())
+        }
+    }
+}

@@ -14,7 +14,7 @@ use pyo3::FromPyObject;
 mod array_types;
 mod python_types;
 mod transpose_types;
-use array_types::Array;
+use array_types::{Array, BoolArray};
 use python_types::PythonType;
 use transpose_types::{TransposeMap, TransposeSeq};
 
@@ -33,6 +33,8 @@ pub enum InputTypes {
 
     float32,
     float64,
+
+    bool_,
 
     int,
     float,
@@ -60,6 +62,8 @@ impl InputTypes {
             &InputTypes::float32 => OutputTypes::F32(Array::new()),
             &InputTypes::float64 => OutputTypes::F64(Array::new()),
 
+            &InputTypes::bool_ => OutputTypes::Bool(BoolArray::new()),
+
             _ => panic!(),
         }
     }
@@ -81,6 +85,8 @@ impl FromStr for InputTypes {
 
             "float32" => Ok(InputTypes::float32),
             "float64" => Ok(InputTypes::float64),
+
+            "bool_" => Ok(InputTypes::bool_),
 
             "int" => Ok(InputTypes::int),
             "float" => Ok(InputTypes::float),
@@ -138,6 +144,8 @@ pub enum OutputTypes {
     F32(Array<f32>),
     F64(Array<f64>),
 
+    Bool(BoolArray),
+
     List(Vec<OutputTypes>),
     Map(HashMap<String, OutputTypes>),
 
@@ -159,6 +167,8 @@ impl IntoPy<PyObject> for OutputTypes {
 
             OutputTypes::F32(v) => v.into_py(py),
             OutputTypes::F64(v) => v.into_py(py),
+
+            OutputTypes::Bool(v) => v.into_py(py),
 
             OutputTypes::List(v) => v.into_py(py),
             OutputTypes::Map(v) => v.into_py(py),
@@ -216,6 +226,8 @@ impl<'de> Visitor<'de> for StructureVisitor {
 
                         InputTypes::float32 => OutputTypes::F32(map.next_value()?),
                         InputTypes::float64 => OutputTypes::F64(map.next_value()?),
+
+                        InputTypes::bool_ => OutputTypes::Bool(map.next_value()?),
 
                         InputTypes::int => {
                             OutputTypes::PythonType(PythonType(Value::Number(map.next_value()?)))
@@ -319,6 +331,11 @@ impl<'de> Visitor<'de> for StructureVisitor {
                             .ok_or_else(|| S::Error::custom(err_msg))?,
                     ),
                     InputTypes::float64 => OutputTypes::F64(
+                        seq.next_element()?
+                            .ok_or_else(|| S::Error::custom(err_msg))?,
+                    ),
+
+                    InputTypes::bool_ => OutputTypes::Bool(
                         seq.next_element()?
                             .ok_or_else(|| S::Error::custom(err_msg))?,
                     ),

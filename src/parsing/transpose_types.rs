@@ -45,6 +45,8 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
 
                 OutputTypes::F32(arr) => arr.push(seq.next_element()?.unwrap()),
                 OutputTypes::F64(arr) => arr.push(seq.next_element()?.unwrap()),
+
+                OutputTypes::Bool(arr) => arr.push(seq.next_element()?.unwrap()),
                 _ => panic!(
                     "other variants shoudn't be able to occur because of logic in StructureVisitor"
                 ),
@@ -96,6 +98,8 @@ impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
 
                     OutputTypes::F32(arr) => arr.push(map.next_value()?),
                     OutputTypes::F64(arr) => arr.push(map.next_value()?),
+
+                    OutputTypes::Bool(arr) => arr.push(map.next_value()?),
                     _ => panic!(
                         "other variants shoudn't be able to occur because of logic in StructureVisitor"
                     ),
