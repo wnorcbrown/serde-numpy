@@ -47,7 +47,7 @@ pub enum InputTypes {
 }
 
 impl InputTypes {
-    fn get_new_output_type(&self) -> OutputTypes {
+    fn get_transpose_output_type(&self) -> OutputTypes {
         match self {
             &InputTypes::int8 => OutputTypes::I8(Array::new()),
             &InputTypes::int16 => OutputTypes::I16(Array::new()),
@@ -64,7 +64,14 @@ impl InputTypes {
 
             &InputTypes::bool_ => OutputTypes::Bool(BoolArray::new()),
 
-            _ => panic!(),
+            &InputTypes::int => OutputTypes::PyList(Vec::new()),
+            &InputTypes::float => OutputTypes::PyList(Vec::new()),
+            &InputTypes::str => OutputTypes::PyList(Vec::new()),
+            &InputTypes::bool => OutputTypes::PyList(Vec::new()),
+
+            &InputTypes::list => OutputTypes::PyList(Vec::new()),
+            &InputTypes::dict => OutputTypes::PyList(Vec::new()),
+            &InputTypes::any => OutputTypes::PyList(Vec::new()),
         }
     }
 }
@@ -146,10 +153,12 @@ pub enum OutputTypes {
 
     Bool(BoolArray),
 
+    PythonType(PythonType),
+    PyList(Vec<PythonType>),
+
     List(Vec<OutputTypes>),
     Map(HashMap<String, OutputTypes>),
-
-    PythonType(PythonType),
+    
 }
 
 impl IntoPy<PyObject> for OutputTypes {
@@ -170,10 +179,13 @@ impl IntoPy<PyObject> for OutputTypes {
 
             OutputTypes::Bool(v) => v.into_py(py),
 
+            OutputTypes::PythonType(v) => v.into_py(py),
+            OutputTypes::PyList(v) => v.into_py(py),
+
             OutputTypes::List(v) => v.into_py(py),
             OutputTypes::Map(v) => v.into_py(py),
 
-            OutputTypes::PythonType(v) => v.into_py(py),
+            
         }
     }
 }
@@ -340,23 +352,6 @@ impl<'de> Visitor<'de> for StructureVisitor {
                             .ok_or_else(|| S::Error::custom(err_msg))?,
                     ),
 
-                    InputTypes::int => OutputTypes::PythonType(PythonType(Value::Number(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ))), // Need to properly map ints and floats to raise error
-                    InputTypes::float => OutputTypes::PythonType(PythonType(Value::Number(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ))),
-                    InputTypes::bool => OutputTypes::PythonType(PythonType(Value::Bool(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ))),
-                    InputTypes::str => OutputTypes::PythonType(PythonType(Value::String(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ))),
-
                     _ => OutputTypes::PythonType(
                         seq.next_element::<PythonType>()?
                             .ok_or_else(|| S::Error::custom(err_msg))?,
@@ -371,7 +366,7 @@ impl<'de> Visitor<'de> for StructureVisitor {
         } else if let Structure::ListofList(structure_lol) = structure {
             let mut out: Vec<OutputTypes> = structure_lol[0]
                 .iter()
-                .map(|input_type| -> OutputTypes { input_type.get_new_output_type() })
+                .map(|input_type| -> OutputTypes { input_type.get_transpose_output_type() })
                 .collect();
             let mut transpose_vecs = TransposeSeq(&mut out);
             loop {
@@ -386,7 +381,7 @@ impl<'de> Visitor<'de> for StructureVisitor {
             let mut out: HashMap<String, OutputTypes> = structure_lom[0]
                 .iter()
                 .map(|(key, input_type)| -> (String, OutputTypes) {
-                    (key.clone(), input_type.get_new_output_type())
+                    (key.clone(), input_type.get_transpose_output_type())
                 })
                 .collect();
             let mut transpose_map = TransposeMap(&mut out);

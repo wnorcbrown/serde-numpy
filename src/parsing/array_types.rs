@@ -50,6 +50,8 @@ impl<T> Array<T> {
             _ => panic!("not implemented"),
         }
     }
+
+    
 }
 
 impl<'de, T: FromPrimitive + Clone + Deserialize<'de>> Deserialize<'de> for Array<T> {

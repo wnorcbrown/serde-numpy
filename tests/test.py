@@ -120,13 +120,14 @@ def test_deserialize_float(json_str: bytes):
     assert deserialized["float"] == 0.34
 
 
-def test_deserialize_int_fail(json_str: bytes):
-    with pytest.raises(TypeError):
-        structure = {"float": int}
-        deserialized = deserialize(json_str, structure)
-        assert_same_structure(structure, deserialized)
-        assert_correct_types(structure, deserialized)
-        assert deserialized["float"] == 0.34
+# def test_deserialize_int_fail(json_str: bytes):
+#     with pytest.raises(TypeError):
+#         structure = {"float": int}
+#         deserialized = deserialize(json_str, structure)
+#         assert_same_structure(structure, deserialized)
+#         assert_correct_types(structure, deserialized)
+#         assert deserialized["float"] == 0.34
+# DO WE NEED TO RAISE THIS ERROR? we could allow it to deseriliaze to float silently...
 
 
 def test_deserialize_float_array(json_str: bytes):
@@ -238,7 +239,7 @@ def test_entire_structure(json_str: bytes):
                  "stream0": [[np.float32, np.int32]], 
                  "stream1": [[np.int32, np.uint8]]},
         "stream0": [np.float64, np.int64, np.int8],
-        "stream1": [np.float64, np.int64, bool],
+        "stream1": [float, np.int64, bool],
         "stream2": [[np.float64, bool, str]],
         "stream3": [[np.float64, np.int32, int]],
         "stream4": [{"x": np.float64, "y": np.uint8, "z": np.uint8}],
