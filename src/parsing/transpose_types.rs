@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
-use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
+use serde::de;
+use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor, IgnoredAny};
 
+use super::errors::Error;
 use crate::parsing::OutputTypes;
 
 pub struct TransposeSeq<'s>(pub &'s mut Vec<OutputTypes>);
@@ -33,27 +35,66 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
         let out: &mut Vec<OutputTypes> = self.0 .0;
         for output_type in out.iter_mut() {
             match output_type {
-                OutputTypes::I8(arr) => arr.push(seq.next_element()?.unwrap()),
-                OutputTypes::I16(arr) => arr.push(seq.next_element()?.unwrap()),
-                OutputTypes::I32(arr) => arr.push(seq.next_element()?.unwrap()),
-                OutputTypes::I64(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::I8(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
+                OutputTypes::I16(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
+                OutputTypes::I32(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
+                OutputTypes::I64(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
 
-                OutputTypes::U8(arr) => arr.push(seq.next_element()?.unwrap()),
-                OutputTypes::U16(arr) => arr.push(seq.next_element()?.unwrap()),
-                OutputTypes::U32(arr) => arr.push(seq.next_element()?.unwrap()),
-                OutputTypes::U64(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::U8(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
+                OutputTypes::U16(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
+                OutputTypes::U32(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
+                OutputTypes::U64(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
 
-                OutputTypes::F32(arr) => arr.push(seq.next_element()?.unwrap()),
-                OutputTypes::F64(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::F32(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
+                OutputTypes::F64(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
 
-                OutputTypes::Bool(arr) => arr.push(seq.next_element()?.unwrap()),
+                OutputTypes::Bool(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
 
-                OutputTypes::PyList(arr) => arr.push(seq.next_element()?.unwrap()),
-                
+                OutputTypes::PyList(arr) => arr.push(
+                    seq.next_element()?
+                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
+                ),
+
                 _ => panic!(
                     "other variants shoudn't be able to occur because of logic in StructureVisitor"
                 ),
             }
+        }
+        while let Some(_) = seq.next_element::<IgnoredAny>()? {
+            // empty any remaining items from the list with unspecified types
         }
         Ok(self.0)
     }
@@ -109,6 +150,10 @@ impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
                         "other variants shoudn't be able to occur because of logic in StructureVisitor"
                     ),
                 }
+            } else {
+                // if the `out` map doesn't contain a key in the map (i.e. it wasn't included in the structure) we ignore it
+                let _ = map.next_value::<IgnoredAny>();
+                continue;
             }
         }
         Ok(self.0)

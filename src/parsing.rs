@@ -4,7 +4,7 @@ use std::str::FromStr;
 use serde;
 use serde::de::{DeserializeSeed, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
-use serde_json::{Number, Value};
+use serde_json::Value;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{IntoPy, PyAny, PyErr, PyObject, Python};
@@ -12,6 +12,7 @@ use pyo3::types::PyType;
 use pyo3::FromPyObject;
 
 mod array_types;
+mod errors;
 mod python_types;
 mod transpose_types;
 use array_types::{Array, BoolArray};
@@ -158,7 +159,6 @@ pub enum OutputTypes {
 
     List(Vec<OutputTypes>),
     Map(HashMap<String, OutputTypes>),
-    
 }
 
 impl IntoPy<PyObject> for OutputTypes {
@@ -184,8 +184,6 @@ impl IntoPy<PyObject> for OutputTypes {
 
             OutputTypes::List(v) => v.into_py(py),
             OutputTypes::Map(v) => v.into_py(py),
-
-            
         }
     }
 }

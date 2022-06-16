@@ -50,8 +50,6 @@ impl<T> Array<T> {
             _ => panic!("not implemented"),
         }
     }
-
-    
 }
 
 impl<'de, T: FromPrimitive + Clone + Deserialize<'de>> Deserialize<'de> for Array<T> {
@@ -264,13 +262,8 @@ impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVis
     }
 }
 
-
-
-
 // The following is a seperate implementation for boolean arrays - BoolArray - because num_traits is not implemented for booleans
 // The implementation should remain equivalent to the above generic implementation
-
-
 
 #[derive(Debug, PartialEq)]
 pub struct BoolArray(pub Base<bool>, pub Option<Vec<usize>>);
@@ -341,8 +334,7 @@ struct BoolArrayBuilder<'a> {
     compute_shape: bool,
 }
 
-impl<'de, 'a> DeserializeSeed<'de> for BoolArrayBuilder<'a>
-{
+impl<'de, 'a> DeserializeSeed<'de> for BoolArrayBuilder<'a> {
     type Value = ();
     fn deserialize<D>(mut self, deserializer: D) -> Result<Self::Value, D::Error>
     where

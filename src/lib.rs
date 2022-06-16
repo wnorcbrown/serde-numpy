@@ -1,4 +1,4 @@
-use pyo3::exceptions::{PyValueError, PyTypeError};
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::{pyclass, pymethods, pymodule, IntoPy, PyModule, PyObject, PyResult, Python};
 use pyo3::types::PyType;
 
