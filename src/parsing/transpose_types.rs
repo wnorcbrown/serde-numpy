@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 
+use itertools::Itertools;
 use serde::de;
-use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor, IgnoredAny};
+use serde::de::{DeserializeSeed, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
 
 use super::errors::Error;
 use crate::parsing::OutputTypes;
@@ -127,8 +129,11 @@ impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
         A: MapAccess<'de>,
     {
         let out: &mut HashMap<String, OutputTypes> = self.0 .0;
+        let n_keys = out.len();
+        let mut seen_keys = HashSet::with_capacity(n_keys);
         while let Some(key) = map.next_key::<String>()? {
             if let Some(output_type) = out.get_mut(&key) {
+                seen_keys.insert(key);
                 match output_type {
                     OutputTypes::I8(arr) => arr.push(map.next_value()?),
                     OutputTypes::I16(arr) => arr.push(map.next_value()?),
@@ -152,9 +157,18 @@ impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
                 }
             } else {
                 // if the `out` map doesn't contain a key in the map (i.e. it wasn't included in the structure) we ignore it
-                let _ = map.next_value::<IgnoredAny>();
-                continue;
+                map.next_value::<IgnoredAny>()?;
             }
+        }
+        if n_keys > seen_keys.len() {
+            let not_seen_keys = out
+                .iter()
+                .filter(|(k, _)| !seen_keys.contains(k.clone()))
+                .map(|(k, _)| k.clone())
+                .collect_vec();
+            return Err(de::Error::custom(format!(
+                "Key(s) not found: {not_seen_keys:?}"
+            )));
         }
         Ok(self.0)
     }

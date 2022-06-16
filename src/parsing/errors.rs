@@ -3,15 +3,13 @@ use std::fmt::{self, Display};
 
 use serde::{de, ser};
 
-pub type Result<T> = std::result::Result<T, Error>;
-
 #[derive(Debug)]
 pub enum Error {
     Message(String),
     SequenceExhausted,
-    MapExhausted,
-    IrregularArray,
-    WrongType,
+    // AbsentKey(String),
+    // IrregularArray,
+    // WrongType,
 }
 
 impl ser::Error for Error {

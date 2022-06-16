@@ -42,10 +42,7 @@ impl NumpyDeserializer {
             .deserialize(&mut serde_json::Deserializer::from_slice(json_str));
         match result {
             Ok(value) => Ok(value.into_py(py)),
-            Err(err) => Err(PyTypeError::new_err(format!(
-                "Error deserializing json {}",
-                err
-            ))),
+            Err(err) => Err(PyTypeError::new_err(err.to_string())),
         }
     }
 }

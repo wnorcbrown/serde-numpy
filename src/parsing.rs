@@ -1,7 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
+use itertools::Itertools;
+
 use serde;
+use serde::de;
 use serde::de::{DeserializeSeed, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
 use serde_json::Value;
@@ -221,6 +224,8 @@ impl<'de> Visitor<'de> for StructureVisitor {
         let mut out = HashMap::new();
         let structure = self.0.data;
         if let Structure::Map(structure_map) = structure {
+            let n_keys = structure_map.len();
+            let mut seen_keys = HashSet::with_capacity(n_keys);
             while let Some(key) = map.next_key::<String>()? {
                 let value = match structure_map.get(&key) {
                     Some(Structure::Type(input_type)) => match input_type {
@@ -283,11 +288,23 @@ impl<'de> Visitor<'de> for StructureVisitor {
                         continue;
                     }
                 };
+
+                seen_keys.insert(key.clone());
                 out.insert(key, value);
+            }
+            if n_keys > seen_keys.len() {
+                let not_seen_keys = structure_map
+                    .iter()
+                    .filter(|(k, _)| !seen_keys.contains(k.clone()))
+                    .map(|(k, _)| k.clone())
+                    .collect_vec();
+                return Err(de::Error::custom(format!(
+                    "Key(s) not found: {not_seen_keys:?}"
+                )));
             }
             Ok(OutputTypes::Map(out))
         } else {
-            panic!(""); // add correct error here
+            panic!(""); // add correct error here + ADD TESTS FOR VISITING A MAP WHEN STRUCTURE IS LIST & VICE VERSA
         }
     }
 
