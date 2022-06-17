@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
 
 use itertools::Itertools;
@@ -48,6 +49,36 @@ pub enum InputTypes {
     list,
     dict,
     any,
+}
+
+impl Display for InputTypes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::int8 => write!(f, "np.int8"),
+            Self::int16 => write!(f, "np.int16"),
+            Self::int32 => write!(f, "np.int32"),
+            Self::int64 => write!(f, "np.int64"),
+
+            Self::uint8 => write!(f, "np.uint8"),
+            Self::uint16 => write!(f, "np.uint16"),
+            Self::uint32 => write!(f, "np.uint32"),
+            Self::uint64 => write!(f, "np.uint64"),
+
+            Self::float32 => write!(f, "np.float32"),
+            Self::float64 => write!(f, "np.float64"),
+
+            Self::bool_ => write!(f, "np.bool_"),
+
+            Self::int => write!(f, "int"),
+            Self::float => write!(f, "float"),
+            Self::str => write!(f, "str"),
+            Self::bool => write!(f, "bool"),
+
+            Self::list => write!(f, "list"),
+            Self::dict => write!(f, "dict"),
+            Self::any => write!(f, "any"),
+        }
+    }
 }
 
 impl InputTypes {
@@ -162,6 +193,33 @@ pub enum OutputTypes {
 
     List(Vec<OutputTypes>),
     Map(HashMap<String, OutputTypes>),
+}
+
+impl Display for OutputTypes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::I8(_) => write!(f, "np.int8"),
+            Self::I16(_) => write!(f, "np.int16"),
+            Self::I32(_) => write!(f, "np.int32"),
+            Self::I64(_) => write!(f, "np.int64"),
+
+            Self::U8(_) => write!(f, "np.uint8"),
+            Self::U16(_) => write!(f, "np.uint16"),
+            Self::U32(_) => write!(f, "np.uint32"),
+            Self::U64(_) => write!(f, "np.uint64"),
+
+            Self::F32(_) => write!(f, "np.float32"),
+            Self::F64(_) => write!(f, "np.float64"),
+
+            Self::Bool(_) => write!(f, "np.bool_"),
+
+            Self::PythonType(_) => write!(f, "Any"),
+            Self::PyList(_) => write!(f, "List"),
+
+            Self::List(_) => write!(f, "List"),
+            Self::Map(_) => write!(f, "Dict"),
+        }
+    }
 }
 
 impl IntoPy<PyObject> for OutputTypes {
@@ -316,63 +374,36 @@ impl<'de> Visitor<'de> for StructureVisitor {
         let structure = self.0.data;
         if let Structure::List(structure_list) = structure {
             let mut out = Vec::<OutputTypes>::new();
-            let err_msg = "length of list structure longer than list in data";
-            for input_type in structure_list {
+            for (i, input_type) in structure_list.iter().enumerate() {
                 let output_type = match input_type {
-                    InputTypes::int8 => OutputTypes::I8(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
-                    InputTypes::int16 => OutputTypes::I16(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
-                    InputTypes::int32 => OutputTypes::I32(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
-                    InputTypes::int64 => OutputTypes::I64(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
+                    InputTypes::int8 => seq.next_element()?.map(|arr| OutputTypes::I8(arr)),
+                    InputTypes::int16 => seq.next_element()?.map(|arr| OutputTypes::I16(arr)),
+                    InputTypes::int32 => seq.next_element()?.map(|arr| OutputTypes::I32(arr)),
+                    InputTypes::int64 => seq.next_element()?.map(|arr| OutputTypes::I64(arr)),
 
-                    InputTypes::uint8 => OutputTypes::U8(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
-                    InputTypes::uint16 => OutputTypes::U16(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
-                    InputTypes::uint32 => OutputTypes::U32(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
-                    InputTypes::uint64 => OutputTypes::U64(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
+                    InputTypes::uint8 => seq.next_element()?.map(|arr| OutputTypes::U8(arr)),
+                    InputTypes::uint16 => seq.next_element()?.map(|arr| OutputTypes::U16(arr)),
+                    InputTypes::uint32 => seq.next_element()?.map(|arr| OutputTypes::U32(arr)),
+                    InputTypes::uint64 => seq.next_element()?.map(|arr| OutputTypes::U64(arr)),
 
-                    InputTypes::float32 => OutputTypes::F32(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
-                    InputTypes::float64 => OutputTypes::F64(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
+                    InputTypes::float32 => seq.next_element()?.map(|arr| OutputTypes::F32(arr)),
+                    InputTypes::float64 => seq.next_element()?.map(|arr| OutputTypes::F64(arr)),
 
-                    InputTypes::bool_ => OutputTypes::Bool(
-                        seq.next_element()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
+                    InputTypes::bool_ => seq.next_element()?.map(|arr| OutputTypes::Bool(arr)),
 
-                    _ => OutputTypes::PythonType(
-                        seq.next_element::<PythonType>()?
-                            .ok_or_else(|| S::Error::custom(err_msg))?,
-                    ),
+                    _ => seq.next_element()?.map(|arr| OutputTypes::PythonType(arr)),
                 };
-                out.push(output_type)
+                match output_type {
+                    Some(output_type) => out.push(output_type),
+                    None => {
+                        return Err(S::Error::custom(format!(
+                            "Too many columns specified: [{}] ({}) \nFound: ({})",
+                            structure_list.iter().fold(String::new(), |agg, var| agg + var.to_string().as_str() + ", "),
+                            structure_list.len(),
+                            i
+                        )))
+                    }
+                };
             }
             while let Some(_) = seq.next_element::<IgnoredAny>()? {
                 // empty any remaining items from the list with unspecified types

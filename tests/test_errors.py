@@ -28,14 +28,14 @@ def test_extra_column(json_str: bytes):
     with pytest.raises(TypeError) as e:
         structure = {"stream0": [np.float64, np.int64, np.int8, bool]}
         deserialize(json_str, structure)
-    assert str(e.value).startswith("Too many columns specified for `stream0` (expected: 4, found: 3)")
+    assert str(e.value).startswith("Too many columns specified: [np.float64, np.int64, np.int8, bool, ] (4) \nFound: (3)")
 
 
 def test_extra_column_transpose(json_str: bytes):
     with pytest.raises(TypeError) as e:
         structure = {"stream3": [[np.float64, np.int32, int, str]]}
         deserialize(json_str, structure)
-    assert str(e.value).startswith("Too many columns specified for `stream3` (expected: 4, found: 3)")
+    assert str(e.value).startswith("Too many columns specified: [np.float64, np.int32, int, str, ] (4) \nFound: (3)")
 
 
 def test_extra_key(json_str: bytes):

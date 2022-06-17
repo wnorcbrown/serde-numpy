@@ -35,65 +35,41 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
         S: SeqAccess<'de>,
     {
         let out: &mut Vec<OutputTypes> = self.0 .0;
-        for output_type in out.iter_mut() {
-            match output_type {
-                OutputTypes::I8(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
-                OutputTypes::I16(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
-                OutputTypes::I32(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
-                OutputTypes::I64(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
+        for (i, output_type) in out.iter_mut().enumerate() {
+            let success = match output_type {
+                OutputTypes::I8(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
+                OutputTypes::I16(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
+                OutputTypes::I32(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
+                OutputTypes::I64(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
 
-                OutputTypes::U8(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
-                OutputTypes::U16(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
-                OutputTypes::U32(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
-                OutputTypes::U64(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
+                OutputTypes::U8(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
+                OutputTypes::U16(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
+                OutputTypes::U32(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
+                OutputTypes::U64(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
 
-                OutputTypes::F32(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
-                OutputTypes::F64(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
+                OutputTypes::F32(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
+                OutputTypes::F64(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
 
-                OutputTypes::Bool(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
+                OutputTypes::Bool(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
 
-                OutputTypes::PyList(arr) => arr.push(
-                    seq.next_element()?
-                        .ok_or(de::Error::custom(Error::SequenceExhausted))?,
-                ),
+                OutputTypes::PyList(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
 
                 _ => panic!(
                     "other variants shoudn't be able to occur because of logic in StructureVisitor"
                 ),
-            }
+            };
+            match success {
+                Some(()) => {}
+                None => {
+                    return Err(de::Error::custom(format!(
+                        "Too many columns specified: [{}] ({}) \nFound: ({})",
+                        // TODO: fix space and comma and repeated code in parsing:
+                        out.iter().fold(String::new(), |agg, var| agg + var.to_string().as_str() + ", "), 
+                        out.len(),
+                        i
+                    )))
+                }
+            };
         }
         while let Some(_) = seq.next_element::<IgnoredAny>()? {
             // empty any remaining items from the list with unspecified types
