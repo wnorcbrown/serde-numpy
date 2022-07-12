@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use pyo3::exceptions::PyValueError;
-use pyo3::prelude::{IntoPy, PyAny, PyErr, PyObject, Python};
+use pyo3::prelude::{IntoPy, PyAny, PyErr, PyObject, PyResult, Python};
 use pyo3::types::PyType;
 use pyo3::FromPyObject;
 
@@ -222,8 +222,8 @@ impl Display for OutputTypes {
     }
 }
 
-impl IntoPy<PyObject> for OutputTypes {
-    fn into_py(self, py: Python) -> PyObject {
+impl IntoPy<PyResult<PyObject>> for OutputTypes {
+    fn into_py(self, py: Python) -> PyResult<PyObject> {
         match self {
             OutputTypes::I8(v) => v.into_py(py),
             OutputTypes::I16(v) => v.into_py(py),
@@ -240,11 +240,24 @@ impl IntoPy<PyObject> for OutputTypes {
 
             OutputTypes::Bool(v) => v.into_py(py),
 
-            OutputTypes::PythonType(v) => v.into_py(py),
-            OutputTypes::PyList(v) => v.into_py(py),
+            OutputTypes::PythonType(v) => Ok(v.into_py(py)),
+            OutputTypes::PyList(v) => Ok(v.into_py(py)),
 
-            OutputTypes::List(v) => v.into_py(py),
-            OutputTypes::Map(v) => v.into_py(py),
+            OutputTypes::List(v) => {
+                // consider using try_collect here instead of this:
+                let mut out = Vec::with_capacity(v.len());
+                for x in v {
+                    out.push(x.into_py(py)?)
+                }
+                Ok(out.into_py(py))
+            }
+            OutputTypes::Map(v) => {
+                let mut out = HashMap::with_capacity(v.len());
+                for (k, x) in v {
+                    out.insert(k, x.into_py(py)?);
+                }
+                Ok(out.into_py(py))
+            }
         }
     }
 }
@@ -398,7 +411,9 @@ impl<'de> Visitor<'de> for StructureVisitor {
                     None => {
                         return Err(S::Error::custom(format!(
                             "Too many columns specified: [{}] ({}) \nFound: ({})",
-                            structure_list.iter().fold(String::new(), |agg, var| agg + var.to_string().as_str() + ", "),
+                            structure_list.iter().fold(String::new(), |agg, var| agg
+                                + var.to_string().as_str()
+                                + ", "),
                             structure_list.len(),
                             i
                         )))

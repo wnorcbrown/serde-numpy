@@ -64,10 +64,12 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
                     return Err(de::Error::custom(format!(
                         "Too many columns specified: [{}] ({}) \nFound: ({})",
                         // TODO: fix space and comma and repeated code in parsing:
-                        out.iter().fold(String::new(), |agg, var| agg + var.to_string().as_str() + ", "), 
+                        out.iter().fold(String::new(), |agg, var| agg
+                            + var.to_string().as_str()
+                            + ", "),
                         out.len(),
                         i
-                    )))
+                    )));
                 }
             };
         }

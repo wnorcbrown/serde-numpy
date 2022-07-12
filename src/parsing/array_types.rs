@@ -1,3 +1,4 @@
+use pyo3::exceptions::PyValueError;
 use serde::de;
 use serde::de::{DeserializeSeed, Deserializer, SeqAccess, Visitor};
 use serde::Deserialize;
@@ -16,15 +17,19 @@ pub enum Base<T> {
 #[derive(Debug, PartialEq)]
 pub struct Array<T>(pub Base<T>, pub Option<Vec<usize>>);
 
-impl<T: IntoPy<PyObject> + numpy::Element> IntoPy<PyObject> for Array<T> {
-    fn into_py(self, py: Python) -> PyObject {
+impl<T: IntoPy<PyObject> + numpy::Element> IntoPy<PyResult<PyObject>> for Array<T> {
+    fn into_py(self, py: Python) -> PyResult<PyObject> {
         match self {
-            Array(Base::Scalar(val), _) => val.into_py(py),
+            Array(Base::Scalar(val), _) => Ok(val.into_py(py)),
             Array(Base::Array(arr), shape) => {
-                ndarray::ArrayBase::from_shape_vec(shape.unwrap().into_shape(), arr)
-                    .unwrap()
-                    .into_pyarray(py)
-                    .into_py(py)
+                let expected_shape = shape.clone().unwrap();
+                let n_elements = arr.len();
+                ndarray::ArrayBase::from_shape_vec(shape.unwrap().into_shape(), arr).map_or(
+                    Err(PyValueError::new_err(
+                        format!("Irregular shape found cannot parse as {} array. Expected shape: {:?}  Total elements: {}", std::any::type_name::<T>(), expected_shape, n_elements),
+                    )),
+                    |arr| Ok(arr.into_pyarray(py).into_py(py)),
+                )
             }
         }
     }
@@ -268,15 +273,19 @@ impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVis
 #[derive(Debug, PartialEq)]
 pub struct BoolArray(pub Base<bool>, pub Option<Vec<usize>>);
 
-impl IntoPy<PyObject> for BoolArray {
-    fn into_py(self, py: Python) -> PyObject {
+impl IntoPy<PyResult<PyObject>> for BoolArray {
+    fn into_py(self, py: Python) -> PyResult<PyObject> {
         match self {
-            BoolArray(Base::<bool>::Scalar(val), _) => val.into_py(py),
+            BoolArray(Base::<bool>::Scalar(val), _) => Ok(val.into_py(py)),
             BoolArray(Base::<bool>::Array(arr), shape) => {
-                ndarray::ArrayBase::from_shape_vec(shape.unwrap().into_shape(), arr)
-                    .unwrap()
-                    .into_pyarray(py)
-                    .into_py(py)
+                let expected_shape = shape.clone().unwrap();
+                let n_elements = arr.len();
+                ndarray::ArrayBase::from_shape_vec(shape.unwrap().into_shape(), arr).map_or(
+                    Err(PyValueError::new_err(
+                        format!("Irregular shape found cannot parse as {} array. Expected shape: {:?}  Total elements: {}", "bool", expected_shape, n_elements),
+                    )),
+                    |arr| Ok(arr.into_pyarray(py).into_py(py)),
+                )
             }
         }
     }

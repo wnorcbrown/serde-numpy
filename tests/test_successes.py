@@ -112,7 +112,7 @@ def test_list_of_array(json_str: bytes):
 
 def test_transpose_sequence(json_str: bytes):
     structure = {"stream3": [[np.float64, np.uint8, np.uint8]],
-                 "stream2": [[np.float32, np.bool, str]],
+                 "stream2": [[np.float32, np.bool_, str]],
                  "nest":{"stream0":[[np.float32, np.int8]]}}
     deserialized = deserialize(json_str, structure)
     print(type(deserialized), deserialized)

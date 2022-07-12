@@ -58,7 +58,7 @@ def test_irregular_array(wonky_json_str: bytes):
             "irregular": np.float32,
             }
         deserialize(wonky_json_str, structure)
-    assert str(e.value).startswith("Irregular shape found for `irregular` cannot parse as np.array")
+    assert str(e.value).startswith("Irregular shape found cannot parse as f32 array. Expected shape: [2, 2]  Total elements: 3")
 
 
 
