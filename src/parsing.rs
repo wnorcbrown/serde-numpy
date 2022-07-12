@@ -16,7 +16,6 @@ use pyo3::types::PyType;
 use pyo3::FromPyObject;
 
 mod array_types;
-mod errors;
 mod python_types;
 mod transpose_types;
 use array_types::{Array, BoolArray};

@@ -5,7 +5,6 @@ use itertools::Itertools;
 use serde::de;
 use serde::de::{DeserializeSeed, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
 
-use super::errors::Error;
 use crate::parsing::OutputTypes;
 
 pub struct TransposeSeq<'s>(pub &'s mut Vec<OutputTypes>);
