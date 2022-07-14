@@ -150,7 +150,7 @@ def run_profile_2d_array(dtypes: Sequence[type]):
         times_cols = get_times_2d_array([10], n_cols, dtype)
         ax = fig.add_subplot(gs[i // PLOT_COLS, i % PLOT_COLS])
         plot_times_2d_array(times_rows, times_cols, ax, dtype.__name__)
-    plt.savefig("profile/2darr_profile.png")
+    plt.savefig("profile/2darr_profile.png", pad_inches = 0) 
 
 
 def run_profile_transposed_arrays(dtypes: Sequence[type]):
@@ -164,7 +164,7 @@ def run_profile_transposed_arrays(dtypes: Sequence[type]):
     plt.legend(["n_rows"])
     plt.title([dtype.__name__ for dtype in dtypes], fontsize=10)
     plt.ylabel("speed up")
-    plt.savefig("profile/transpose_profile.png")
+    plt.savefig("profile/transpose_profile.png", pad_inches = 0)
 
         
 if __name__ == "__main__":

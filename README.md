@@ -1,74 +1,126 @@
 # serde-numpy
 
-Deserialize a subset of json keys directly into numpy arrays.
+serde-numpy is a library for deseriliazing JSON (or MessagePack) directly into numpy arrays.
 
-```bash
-poetry install
-poetry run maturin develop
-```
-
-Example usage (eventually):
+## Motivation
+If you've ever done something like this in your code:
 
 ```python
-import serde_numpy
+data = json.load(open("data.json"))
 
-json_str = b"""
-{'name': 'vill',
- 'version': 3000,
- 'arr1': [[1.254439975231648, -0.6893827594332794],
-          [-0.2922560025562806, 0.5204819306523419]],
- 'arr2': [[-100, -25], [-41, -62]],
- 'stream1': [[-1.720294114558863, 0.5990469735869592, 0.0506514091042812, 0.7204746283872987, 1.5351637640639662],
-             [72, 45, -58, -16, -14],
-             [true, false, false, true, false]],
- 'stream2': [[-2.1727126743596266, false, 'a'],
-             [-0.06389102863189458, true, 'b'],
-             [1.3716941547285826, true, 'c']],
- 'nest': {'is_nest': true,
-          'nestiness': 0.9999,
-          'stream3': [[-0.11954010897451912, 28], 
-                      [0.21599243355210992, 9]],
-          'arr3': [true, false, true],
-          'unused_key': 'a'}}"""
+arr = np.array(data["x"])
+```
+then this library does it faster by using less array allocations and less python.
 
-structure = {
-    "name": str, 
-    "version": int,
-    "arr1": np.float32, # equivalent to calling np.array(x["arr1"], dtype=np.float32)
-    "arr2": np.int64,
-    "stream1": [np.float64, np.int32, np.bool], # for column-wise list of lists
-    "stream2": [[np.float32, np.bool, np.str]], # for row-wise list of lists
-    "nest": {
-        "is_nest": bool,
-        "nestiness": float,
-        "stream3": [[np.float128, np.uint64]],
-        "arr3": np.bool,
-    }
-}
+Speed ups are 1.5x - 8x times faster, depending on array sizes (and CPU), when compared to orjson + numpy.
 
-deserialized = serde_numpy.deserialize(json_str, structure)
-deserialized
-
-{'name': 'vill',
- 'version': 3000,
- 'arr1': np.array([[1.254439975231648, -0.6893827594332794],
-                   [-0.2922560025562806, 0.5204819306523419]]),
- 'arr2': np.array([[-100, -25], [-41, -62]]),
- 'stream1': [np.array([-1.720294114558863, 0.5990469735869592, 0.0506514091042812, 0.7204746283872987, 1.5351637640639662]),
-             np.array([72, 45, -58, -16, -14]),
-             np.array([True, False, False, True, False])],
- 'stream2': [np.array([-2.1727126743596266, -0.06389102863189458, 1.3716941547285826]),
-             np.array([False, True, True]),
-             np.array(['a', 'b', 'c']),
- 'nest': {'is_nest': True,
-          'nestiness': 0.9999,
-          'stream3': [np.array([-0.11954010897451912, 0.21599243355210992]), 
-                      np.array([28, 9])],
-          'arr3': np.array([True, False, True])}}"""
+## Usage
 
 
+The user specifies the numpy dtypes within a `structure` corresponding to the json that they want to deserialize.
 
+### N-dimensional array
+
+A subset of the json's keys are specified in the `structure` which is used to initialize the `NumpyDeserializer` and then that subset of keys are deserialized accordingly:
+
+
+```python
+>>> from serde_numpy import NumpyDeserializer
+>>> 
+>>> json_str = b"""
+... {
+...     "name": "coordinates",
+...     "version": "0.1.0",
+...     "arr": [[1.254439975231648, -0.6893827594332794],
+...             [-0.2922560025562806, 0.5204819306523419]]
+... }
+... """
+>>> 
+>>> structure = {
+...     'name': str,
+...     'arr': np.float32
+... }
+>>> 
+>>> deserializer = NumpyDeserializer.from_dict(structure)
+>>> 
+>>> deserializer.deserialize_json(json_str)
+{'arr': array([[ 1.25444   , -0.68938273],
+               [-0.292256  ,  0.52048194]], dtype=float32), 
+ 'name': 'coordinates'}
 ```
 
-[maturin]: https://github.com/PyO3/maturin
-[poetry]: https://python-poetry.org/
+### Transposed arrays
+
+Sometimes people store data in jsons in a row-wise fashion as opposed to column-wise. Therefore each row can contain multiple dtypes. serde-numpy allows you to specify the types of each row and then deserializes into columns. To tell the numpy deserializer that you want to transpose the columns put square brackets outside either a dictionary `[{key: Type, ...}]` like this example:
+
+```python
+>>> json_str = b"""
+... {
+...     "df": [{"a": 3, "b": 4.23},
+...            {"a": 4, "b": 5.12}]
+... }
+... """
+>>> 
+>>> structure = {"df": [{"a": np.uint16, "b": np.float64}]}
+>>> 
+>>> deserializer = NumpyDeserializer.from_dict(structure)
+>>> 
+>>> deserializer.deserialize_json(json_str)
+{'df': {'b': array([4.23, 5.12]), 'a': array([3, 4], dtype=uint16)}}
+```
+**or** put square brackets outside a list `[[Type, ...]]` of types:
+
+```python
+>>> json_str = b"""
+... {
+...     "df": [["i", true],
+...            ["j", false],
+...            ["k", true]]
+... }
+... """
+>>> 
+>>> structure = {"df": [[str, np.bool_]]}
+>>> 
+>>> deserializer = NumpyDeserializer.from_dict(structure)
+>>> 
+>>> deserializer.deserialize_json(json_str)
+{'df': [['i', 'j', 'k'], array([ True, False,  True])]}
+```
+
+
+### Currently supported types:
+Numpy types:
+- `np.int8`
+- `np.int16`
+- `np.int32`
+- `np.int64`
+- `np.uint8`
+- `np.uint16`
+- `np.uint32`
+- `np.uint64`
+- `np.float32`
+- `np.float64`
+- `np.bool_`
+
+Python types:
+- `int`
+- `float`
+- `str`
+- `dict`
+- `list`
+
+## Benchmarks
+
+All benchmarks were performed on an AMD Ryzen 9 3950X. (Add versions of python, linux, orjson and numpy). Orjson was selected as the comparison as it is the fastest on python json benchmarks and we have also found it to be fastest in practice.
+
+### 2D Array deserialization
+
+Two tests are performed. The number of rows are kept constant at 10 while varying the number of columns **and** the number of columns are kept constant at 10 while varying the number of rows. We compare against `orjson.loads` + `np.array` with the desired data type. Results are presented below for deserializing arrays of various data types:
+
+![alt text](profile/2darr_profile.png "2D Array profiling")
+
+### Transposed arrays deserialization
+
+For this test we test the speed of deserializing multiple data types which have been serialized in a row-wise fashion and converting it to column-wise arrays during deseriliazition.
+
+![alt text](profile/transpose_profile.png "Transpose columns profiling")
