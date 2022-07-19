@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
@@ -10,7 +11,7 @@ use serde::de::{DeserializeSeed, Deserializer, IgnoredAny, MapAccess, SeqAccess,
 use serde::Deserialize;
 use serde_json::Value;
 
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyNotImplementedError, PyValueError};
 use pyo3::prelude::{IntoPy, PyAny, PyErr, PyObject, PyResult, Python};
 use pyo3::types::PyType;
 use pyo3::FromPyObject;
@@ -293,88 +294,101 @@ impl<'de> Visitor<'de> for StructureVisitor {
     {
         let mut out = HashMap::new();
         let structure = self.0.data;
-        if let Structure::Map(structure_map) = structure {
-            let n_keys = structure_map.len();
-            let mut seen_keys = HashSet::with_capacity(n_keys);
-            while let Some(key) = map.next_key::<String>()? {
-                let value = match structure_map.get(&key) {
-                    Some(Structure::Type(input_type)) => match input_type {
-                        InputTypes::int8 => OutputTypes::I8(map.next_value()?),
-                        InputTypes::int16 => OutputTypes::I16(map.next_value()?),
-                        InputTypes::int32 => OutputTypes::I32(map.next_value()?),
-                        InputTypes::int64 => OutputTypes::I64(map.next_value()?),
+        match structure {
+            Structure::Map(structure_map) => {
+                let n_keys = structure_map.len();
+                let mut seen_keys = HashSet::with_capacity(n_keys);
+                while let Some(key) = map.next_key::<String>()? {
+                    let value = match structure_map.get(&key) {
+                        Some(Structure::Type(input_type)) => match input_type {
+                            InputTypes::int8 => OutputTypes::I8(map.next_value()?),
+                            InputTypes::int16 => OutputTypes::I16(map.next_value()?),
+                            InputTypes::int32 => OutputTypes::I32(map.next_value()?),
+                            InputTypes::int64 => OutputTypes::I64(map.next_value()?),
 
-                        InputTypes::uint8 => OutputTypes::U8(map.next_value()?),
-                        InputTypes::uint16 => OutputTypes::U16(map.next_value()?),
-                        InputTypes::uint32 => OutputTypes::U32(map.next_value()?),
-                        InputTypes::uint64 => OutputTypes::U64(map.next_value()?),
+                            InputTypes::uint8 => OutputTypes::U8(map.next_value()?),
+                            InputTypes::uint16 => OutputTypes::U16(map.next_value()?),
+                            InputTypes::uint32 => OutputTypes::U32(map.next_value()?),
+                            InputTypes::uint64 => OutputTypes::U64(map.next_value()?),
 
-                        InputTypes::float32 => OutputTypes::F32(map.next_value()?),
-                        InputTypes::float64 => OutputTypes::F64(map.next_value()?),
+                            InputTypes::float32 => OutputTypes::F32(map.next_value()?),
+                            InputTypes::float64 => OutputTypes::F64(map.next_value()?),
 
-                        InputTypes::bool_ => OutputTypes::Bool(map.next_value()?),
+                            InputTypes::bool_ => OutputTypes::Bool(map.next_value()?),
 
-                        InputTypes::int => {
-                            OutputTypes::PythonType(PythonType(Value::Number(map.next_value()?)))
-                        } // Need to properly map ints and floats to raise error
-                        InputTypes::float => {
-                            OutputTypes::PythonType(PythonType(Value::Number(map.next_value()?)))
+                            InputTypes::int => OutputTypes::PythonType(PythonType(Value::Number(
+                                map.next_value()?,
+                            ))), // Need to properly map ints and floats to raise error
+                            InputTypes::float => OutputTypes::PythonType(PythonType(
+                                Value::Number(map.next_value()?),
+                            )),
+                            InputTypes::bool => {
+                                OutputTypes::PythonType(PythonType(Value::Bool(map.next_value()?)))
+                            }
+                            InputTypes::str => OutputTypes::PythonType(PythonType(Value::String(
+                                map.next_value()?,
+                            ))),
+                            _ => OutputTypes::PythonType(map.next_value()?),
+                        },
+                        Some(Structure::List(sub_structure_list)) => {
+                            let sub_structure = StructureDescriptor {
+                                data: Structure::List(sub_structure_list.clone()),
+                            };
+                            map.next_value_seed(sub_structure)?
                         }
-                        InputTypes::bool => {
-                            OutputTypes::PythonType(PythonType(Value::Bool(map.next_value()?)))
+                        Some(Structure::ListofList(sub_structure_lol)) => {
+                            let sub_structure = StructureDescriptor {
+                                data: Structure::ListofList(sub_structure_lol.clone()),
+                            };
+                            map.next_value_seed(sub_structure)?
                         }
-                        InputTypes::str => {
-                            OutputTypes::PythonType(PythonType(Value::String(map.next_value()?)))
+                        Some(Structure::ListofMap(sub_structure_lom)) => {
+                            let sub_structure = StructureDescriptor {
+                                data: Structure::ListofMap(sub_structure_lom.clone()),
+                            };
+                            map.next_value_seed(sub_structure)?
                         }
-                        _ => OutputTypes::PythonType(map.next_value()?),
-                    },
-                    Some(Structure::List(sub_structure_list)) => {
-                        let sub_structure = StructureDescriptor {
-                            data: Structure::List(sub_structure_list.clone()),
-                        };
-                        map.next_value_seed(sub_structure)?
-                    }
-                    Some(Structure::ListofList(sub_structure_lol)) => {
-                        let sub_structure = StructureDescriptor {
-                            data: Structure::ListofList(sub_structure_lol.clone()),
-                        };
-                        map.next_value_seed(sub_structure)?
-                    }
-                    Some(Structure::ListofMap(sub_structure_lom)) => {
-                        let sub_structure = StructureDescriptor {
-                            data: Structure::ListofMap(sub_structure_lom.clone()),
-                        };
-                        map.next_value_seed(sub_structure)?
-                    }
-                    Some(Structure::Map(sub_structure_map)) => {
-                        // TODO get rid of clone and pass as reference
-                        let sub_structure = StructureDescriptor {
-                            data: Structure::Map(sub_structure_map.clone()),
-                        };
-                        map.next_value_seed(sub_structure)?
-                    }
-                    None => {
-                        map.next_value::<serde::de::IgnoredAny>()?;
-                        continue;
-                    }
-                };
+                        Some(Structure::Map(sub_structure_map)) => {
+                            // TODO get rid of clone and pass as reference
+                            let sub_structure = StructureDescriptor {
+                                data: Structure::Map(sub_structure_map.clone()),
+                            };
+                            map.next_value_seed(sub_structure)?
+                        }
+                        None => {
+                            map.next_value::<serde::de::IgnoredAny>()?;
+                            continue;
+                        }
+                    };
 
-                seen_keys.insert(key.clone());
-                out.insert(key, value);
+                    seen_keys.insert(key.clone());
+                    out.insert(key, value);
+                }
+                if n_keys > seen_keys.len() {
+                    let not_seen_keys = structure_map
+                        .iter()
+                        .filter(|(k, _)| !seen_keys.contains(k.clone()))
+                        .map(|(k, _)| k.clone())
+                        .collect_vec();
+                    return Err(de::Error::custom(format!(
+                        "Key(s) not found: {not_seen_keys:?}"
+                    )));
+                }
+                Ok(OutputTypes::Map(out))
             }
-            if n_keys > seen_keys.len() {
-                let not_seen_keys = structure_map
-                    .iter()
-                    .filter(|(k, _)| !seen_keys.contains(k.clone()))
-                    .map(|(k, _)| k.clone())
-                    .collect_vec();
-                return Err(de::Error::custom(format!(
-                    "Key(s) not found: {not_seen_keys:?}"
-                )));
-            }
-            Ok(OutputTypes::Map(out))
-        } else {
-            panic!(""); // add correct error here + ADD TESTS FOR VISITING A MAP WHEN STRUCTURE IS LIST & VICE VERSA
+            Structure::List(list) => Err(de::Error::custom(format!(
+                "Cannot deserialize map as sequence of arrays: {:?}. Try using a map instead",
+                list
+            ))),
+            Structure::ListofList(lol) => Err(de::Error::custom(format!(
+                "Cannot deserialize map as transposed sequence of arrays: {:?}. Try using a map instead",
+                lol
+            ))),
+            Structure::ListofMap(lom) => Err(de::Error::custom(format!(
+                "Cannot deserialize map as transposed sequence of maps: {:?}. Try using a map instead",
+                lom
+            ))),
+            Structure::Type(_) => panic!(),
         }
     }
 
@@ -384,77 +398,84 @@ impl<'de> Visitor<'de> for StructureVisitor {
     {
         use serde::de::Error;
         let structure = self.0.data;
-        if let Structure::List(structure_list) = structure {
-            let mut out = Vec::<OutputTypes>::new();
-            for (i, input_type) in structure_list.iter().enumerate() {
-                let output_type = match input_type {
-                    InputTypes::int8 => seq.next_element()?.map(|arr| OutputTypes::I8(arr)),
-                    InputTypes::int16 => seq.next_element()?.map(|arr| OutputTypes::I16(arr)),
-                    InputTypes::int32 => seq.next_element()?.map(|arr| OutputTypes::I32(arr)),
-                    InputTypes::int64 => seq.next_element()?.map(|arr| OutputTypes::I64(arr)),
+        match structure {
+            Structure::List(structure_list) => {
+                let mut out = Vec::<OutputTypes>::new();
+                for (i, input_type) in structure_list.iter().enumerate() {
+                    let output_type = match input_type {
+                        InputTypes::int8 => seq.next_element()?.map(|arr| OutputTypes::I8(arr)),
+                        InputTypes::int16 => seq.next_element()?.map(|arr| OutputTypes::I16(arr)),
+                        InputTypes::int32 => seq.next_element()?.map(|arr| OutputTypes::I32(arr)),
+                        InputTypes::int64 => seq.next_element()?.map(|arr| OutputTypes::I64(arr)),
 
-                    InputTypes::uint8 => seq.next_element()?.map(|arr| OutputTypes::U8(arr)),
-                    InputTypes::uint16 => seq.next_element()?.map(|arr| OutputTypes::U16(arr)),
-                    InputTypes::uint32 => seq.next_element()?.map(|arr| OutputTypes::U32(arr)),
-                    InputTypes::uint64 => seq.next_element()?.map(|arr| OutputTypes::U64(arr)),
+                        InputTypes::uint8 => seq.next_element()?.map(|arr| OutputTypes::U8(arr)),
+                        InputTypes::uint16 => seq.next_element()?.map(|arr| OutputTypes::U16(arr)),
+                        InputTypes::uint32 => seq.next_element()?.map(|arr| OutputTypes::U32(arr)),
+                        InputTypes::uint64 => seq.next_element()?.map(|arr| OutputTypes::U64(arr)),
 
-                    InputTypes::float32 => seq.next_element()?.map(|arr| OutputTypes::F32(arr)),
-                    InputTypes::float64 => seq.next_element()?.map(|arr| OutputTypes::F64(arr)),
+                        InputTypes::float32 => seq.next_element()?.map(|arr| OutputTypes::F32(arr)),
+                        InputTypes::float64 => seq.next_element()?.map(|arr| OutputTypes::F64(arr)),
 
-                    InputTypes::bool_ => seq.next_element()?.map(|arr| OutputTypes::Bool(arr)),
+                        InputTypes::bool_ => seq.next_element()?.map(|arr| OutputTypes::Bool(arr)),
 
-                    _ => seq.next_element()?.map(|arr| OutputTypes::PythonType(arr)),
-                };
-                match output_type {
-                    Some(output_type) => out.push(output_type),
-                    None => {
-                        return Err(S::Error::custom(format!(
-                            "Too many columns specified: [{}] ({}) \nFound: ({})",
-                            structure_list.iter().fold(String::new(), |agg, var| agg
-                                + var.to_string().as_str()
-                                + ", "),
-                            structure_list.len(),
-                            i
-                        )))
+                        _ => seq.next_element()?.map(|arr| OutputTypes::PythonType(arr)),
+                    };
+                    match output_type {
+                        Some(output_type) => out.push(output_type),
+                        None => {
+                            return Err(S::Error::custom(format!(
+                                "Too many columns specified: [{}] ({}) \nFound: ({})",
+                                structure_list.iter().fold(String::new(), |agg, var| agg
+                                    + var.to_string().as_str()
+                                    + ", "),
+                                structure_list.len(),
+                                i
+                            )))
+                        }
+                    };
+                }
+                while let Some(_) = seq.next_element::<IgnoredAny>()? {
+                    // empty any remaining items from the list with unspecified types
+                }
+                Ok(OutputTypes::List(out))
+            }
+            Structure::ListofList(structure_lol) => {
+                let mut out: Vec<OutputTypes> = structure_lol[0]
+                    .iter()
+                    .map(|input_type| -> OutputTypes { input_type.get_transpose_output_type() })
+                    .collect();
+                let mut transpose_vecs = TransposeSeq(&mut out);
+                loop {
+                    let next = seq.next_element_seed::<TransposeSeq>(transpose_vecs)?;
+                    match next {
+                        Some(next) => transpose_vecs = next,
+                        None => break,
                     }
-                };
-            }
-            while let Some(_) = seq.next_element::<IgnoredAny>()? {
-                // empty any remaining items from the list with unspecified types
-            }
-            Ok(OutputTypes::List(out))
-        } else if let Structure::ListofList(structure_lol) = structure {
-            let mut out: Vec<OutputTypes> = structure_lol[0]
-                .iter()
-                .map(|input_type| -> OutputTypes { input_type.get_transpose_output_type() })
-                .collect();
-            let mut transpose_vecs = TransposeSeq(&mut out);
-            loop {
-                let next = seq.next_element_seed::<TransposeSeq>(transpose_vecs)?;
-                match next {
-                    Some(next) => transpose_vecs = next,
-                    None => break,
                 }
+                Ok(OutputTypes::List(out))
             }
-            Ok(OutputTypes::List(out))
-        } else if let Structure::ListofMap(structure_lom) = structure {
-            let mut out: HashMap<String, OutputTypes> = structure_lom[0]
-                .iter()
-                .map(|(key, input_type)| -> (String, OutputTypes) {
-                    (key.clone(), input_type.get_transpose_output_type())
-                })
-                .collect();
-            let mut transpose_map = TransposeMap(&mut out);
-            loop {
-                let next = seq.next_element_seed::<TransposeMap>(transpose_map)?;
-                match next {
-                    Some(next) => transpose_map = next,
-                    None => break,
+            Structure::ListofMap(structure_lom) => {
+                let mut out: HashMap<String, OutputTypes> = structure_lom[0]
+                    .iter()
+                    .map(|(key, input_type)| -> (String, OutputTypes) {
+                        (key.clone(), input_type.get_transpose_output_type())
+                    })
+                    .collect();
+                let mut transpose_map = TransposeMap(&mut out);
+                loop {
+                    let next = seq.next_element_seed::<TransposeMap>(transpose_map)?;
+                    match next {
+                        Some(next) => transpose_map = next,
+                        None => break,
+                    }
                 }
+                Ok(OutputTypes::Map(out))
             }
-            Ok(OutputTypes::Map(out))
-        } else {
-            panic!()
+            Structure::Map(map) => Err(de::Error::custom(format!(
+                "Cannot deserialize sequence as map of arrays: {:?}",
+                map
+            ))),
+            Structure::Type(_) => panic!(),
         }
     }
 }

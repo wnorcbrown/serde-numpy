@@ -26,7 +26,7 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
     type Value = TransposeSeq<'s>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "TODO")
+        write!(formatter, "sequence with elements: {:?}", self.0.0)
     }
 
     fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
@@ -98,7 +98,7 @@ impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
     type Value = TransposeMap<'s>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "TODO")
+        write!(formatter, "map with elements: {:?}", self.0.0)
     }
 
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
