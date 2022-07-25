@@ -11,7 +11,7 @@ use serde::de::{DeserializeSeed, Deserializer, IgnoredAny, MapAccess, SeqAccess,
 use serde::Deserialize;
 use serde_json::Value;
 
-use pyo3::exceptions::{PyNotImplementedError, PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{IntoPy, PyAny, PyErr, PyObject, PyResult, Python};
 use pyo3::types::PyType;
 use pyo3::FromPyObject;
@@ -216,7 +216,7 @@ impl Display for OutputTypes {
             Self::PythonType(_) => write!(f, "Any"),
             Self::PyList(_) => write!(f, "List"),
 
-            Self::List(_) => write!(f, "List"),
+            Self::List(vec) => write!(f, "[{}]", vec.iter().fold(String::new(), |agg, var| agg + var.to_string().as_str() + ", ")),
             Self::Map(_) => write!(f, "Dict"),
         }
     }

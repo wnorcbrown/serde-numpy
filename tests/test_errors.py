@@ -99,9 +99,14 @@ def test_deserialize_map_as_type(json_str: str):
 
 
 def test_deserialize_lol_as_lom(json_str: bytes):
-    structure = {"stream3": [{"a": np.float64, "b": np.uint8, "c": np.uint8}]}
-    deserialized = deserialize(json_str, structure)
+    with pytest.raises(TypeError) as e:
+        structure = {"stream3": [{"a": np.float64, "b": np.uint8, "c": np.uint8}]}
+        deserialized = deserialize(json_str, structure)
+    assert str(e.value).startswith("""invalid type: sequence, expected map with elements: {"a": np.float64, "b": np.uint8, "c": np.uint8, }""")
+
 
 def test_deserialize_lom_as_lol(json_str: str):
-    structure = {"stream4": [[np.float64, np.uint8, np.uint8]]}
-    deserialized = deserialize(json_str, structure)
+    with pytest.raises(TypeError) as e:
+        structure = {"stream4": [[np.float64, np.uint8, np.uint8]]}
+        deserialized = deserialize(json_str, structure)
+    assert str(e.value).startswith("invalid type: map, expected sequence with elements: [np.float64, np.uint8, np.uint8, ]")
