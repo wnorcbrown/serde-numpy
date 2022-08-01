@@ -65,9 +65,9 @@ def test_irregular_array(wonky_json_str: bytes):
 
 def test_list_of_nested_structure():
     structure = {"stream4": [{"x": np.float64, "y": np.uint8, "x": {"a": np.bool_, "b": np.int32}}]}
-    with pytest.raises(NotImplementedError) as e:
+    with pytest.raises(TypeError) as e:
         NumpyDeserializer.from_dict(structure)
-    assert str(e.value).startswith("""List of nested structures (i.e. [{"a": {"b": Type}}]) currently not implemented.""")
+    assert str(e.value).startswith("""structure unsupported. Currently sequences of nested structures are unsupported e.g. [{\"a\": {\"b\": Type}}])""")
 
 
 def test_deserialize_list_as_map(json_str: str):
@@ -81,7 +81,7 @@ def test_deserialize_list_as_type(json_str: str):
     structure = {"stream0": int}
     with pytest.raises(TypeError) as e:
         deserialize(json_str, structure)
-    assert str(e.value).startswith("Cannot deserialize sequence as map of arrays")
+    assert str(e.value).startswith("Could not deserialize as int")
 
 
 def test_deserialize_map_as_list(json_str: str):
@@ -95,7 +95,7 @@ def test_deserialize_map_as_type(json_str: str):
     structure = int
     with pytest.raises(TypeError) as e:
         deserialize(json_str, structure)
-    assert str(e.value).startswith("Cannot deserialize map as sequence of arrays")
+    assert str(e.value).startswith("Cannot deserialize map as type: int. Try using a dictionary instead")
 
 
 def test_deserialize_lol_as_lom(json_str: bytes):

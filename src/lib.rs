@@ -1,10 +1,11 @@
+use pyo3;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::{pyclass, pymethods, pymodule, IntoPy, PyModule, PyObject, PyResult, Python};
 use pyo3::types::PyType;
 
 use serde::de::DeserializeSeed;
 mod parsing;
-use parsing::{Structure, StructureDescriptor};
+use parsing::StructureDescriptor;
 
 #[pyclass]
 struct NumpyDeserializer {
@@ -14,10 +15,11 @@ struct NumpyDeserializer {
 #[pymethods]
 impl NumpyDeserializer {
     #[classmethod]
-    fn from_dict(_cls: &PyType, _py: Python, structure: Structure) -> PyResult<Self> {
-        Ok(NumpyDeserializer {
-            structure_descriptor: StructureDescriptor { data: structure },
-        })
+    fn from_dict(_cls: &PyType, py: Python, structure: PyObject) -> PyResult<Self> {
+        match structure.extract(py) {
+            Ok(data) => Ok(NumpyDeserializer { structure_descriptor: StructureDescriptor { data } }),
+            Err(_) => Err(PyTypeError::new_err("structure unsupported. Currently sequences of nested structures are unsupported e.g. [{\"a\": {\"b\": Type}}])"))
+        }
     }
 
     #[classmethod]

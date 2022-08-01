@@ -1,6 +1,6 @@
-use std::fmt::{Result as FmtResult, Display, Formatter};
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 use itertools::Itertools;
 use serde::de;
@@ -27,7 +27,11 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
     type Value = TransposeSeq<'s>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "sequence with elements: {}", DisplayVecOutputTypes(self.0.0))
+        write!(
+            formatter,
+            "sequence with elements: {}",
+            DisplayVecOutputTypes(self.0 .0)
+        )
     }
 
     fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
@@ -99,7 +103,11 @@ impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
     type Value = TransposeMap<'s>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "map with elements: {}", DisplayHashMapOutputTypes(self.0.0))
+        write!(
+            formatter,
+            "map with elements: {}",
+            DisplayHashMapOutputTypes(self.0 .0)
+        )
     }
 
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
@@ -152,20 +160,30 @@ impl<'de, 's> Visitor<'de> for TransposeMapVisitor<'s> {
     }
 }
 
-
 struct DisplayVecOutputTypes<'d>(&'d Vec<OutputTypes>);
 
 impl<'d> Display for DisplayVecOutputTypes<'d> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "[{}]", self.0.iter().fold(String::new(), |agg, var| agg + var.to_string().as_str() + ", "))
+        write!(
+            f,
+            "[{}]",
+            self.0.iter().fold(String::new(), |agg, var| agg
+                + var.to_string().as_str()
+                + ", ")
+        )
     }
 }
-
 
 struct DisplayHashMapOutputTypes<'d>(&'d HashMap<String, OutputTypes>);
 
 impl<'d> Display for DisplayHashMapOutputTypes<'d> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "{{{}}}", self.0.iter().fold(String::new(), |agg, (key, var)| agg + format!("\"{}\": {}", key, var.to_string()).as_str() + ", "))
+        write!(
+            f,
+            "{{{}}}",
+            self.0.iter().fold(String::new(), |agg, (key, var)| agg
+                + format!("\"{}\": {}", key, var.to_string()).as_str()
+                + ", ")
+        )
     }
 }

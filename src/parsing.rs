@@ -1,4 +1,3 @@
-use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{self, Display, Formatter};
 use std::str::FromStr;
@@ -216,7 +215,13 @@ impl Display for OutputTypes {
             Self::PythonType(_) => write!(f, "Any"),
             Self::PyList(_) => write!(f, "List"),
 
-            Self::List(vec) => write!(f, "[{}]", vec.iter().fold(String::new(), |agg, var| agg + var.to_string().as_str() + ", ")),
+            Self::List(vec) => write!(
+                f,
+                "[{}]",
+                vec.iter().fold(String::new(), |agg, var| agg
+                    + var.to_string().as_str()
+                    + ", ")
+            ),
             Self::Map(_) => write!(f, "Dict"),
         }
     }
@@ -316,18 +321,18 @@ impl<'de> Visitor<'de> for StructureVisitor {
 
                             InputTypes::bool_ => OutputTypes::Bool(map.next_value()?),
 
-                            InputTypes::int => OutputTypes::PythonType(PythonType(Value::Number(
-                                map.next_value()?,
-                            ))), // Need to properly map ints and floats to raise error
-                            InputTypes::float => OutputTypes::PythonType(PythonType(
-                                Value::Number(map.next_value()?),
-                            )),
-                            InputTypes::bool => {
-                                OutputTypes::PythonType(PythonType(Value::Bool(map.next_value()?)))
+                            InputTypes::int => {
+                                OutputTypes::PythonType(PythonType(Value::Number(map.next_value().map_err(|_| serde::de::Error::custom("Could not deserialize as int"))?)))
                             }
-                            InputTypes::str => OutputTypes::PythonType(PythonType(Value::String(
-                                map.next_value()?,
-                            ))),
+                            InputTypes::float => {
+                                OutputTypes::PythonType(PythonType(Value::Number(map.next_value().map_err(|_| serde::de::Error::custom("Could not deserialize as float"))?)))
+                            }
+                            InputTypes::bool => {
+                                OutputTypes::PythonType(PythonType(Value::Bool(map.next_value().map_err(|_| serde::de::Error::custom("Could not deserialize as bool"))?)))
+                            }
+                            InputTypes::str => {
+                                OutputTypes::PythonType(PythonType(Value::String(map.next_value().map_err(|_| serde::de::Error::custom("Could not deserialize as str"))?)))
+                            }
                             _ => OutputTypes::PythonType(map.next_value()?),
                         },
                         Some(Structure::List(sub_structure_list)) => {
@@ -377,18 +382,21 @@ impl<'de> Visitor<'de> for StructureVisitor {
                 Ok(OutputTypes::Map(out))
             }
             Structure::List(list) => Err(de::Error::custom(format!(
-                "Cannot deserialize map as sequence of arrays: {:?}. Try using a map instead",
+                "Cannot deserialize map as sequence of arrays: {:?}. Try using a dictionary instead",
                 list
             ))),
             Structure::ListofList(lol) => Err(de::Error::custom(format!(
-                "Cannot deserialize map as transposed sequence of arrays: {:?}. Try using a map instead",
+                "Cannot deserialize map as transposed sequence of arrays: {:?}. Try using a dictionary instead",
                 lol
             ))),
             Structure::ListofMap(lom) => Err(de::Error::custom(format!(
-                "Cannot deserialize map as transposed sequence of maps: {:?}. Try using a map instead",
+                "Cannot deserialize map as transposed sequence of maps: {:?}. Try using a dictionary instead",
                 lom
             ))),
-            Structure::Type(_) => panic!(),
+            Structure::Type(t) => Err(de::Error::custom(format!(
+                "Cannot deserialize map as type: {:?}. Try using a dictionary instead",
+                t
+            )))
         }
     }
 
@@ -472,10 +480,13 @@ impl<'de> Visitor<'de> for StructureVisitor {
                 Ok(OutputTypes::Map(out))
             }
             Structure::Map(map) => Err(de::Error::custom(format!(
-                "Cannot deserialize sequence as map of arrays: {:?}",
+                "Cannot deserialize sequence as map of arrays: {:?}. Try using a list instead",
                 map
             ))),
-            Structure::Type(_) => panic!(),
+            Structure::Type(t) => Err(de::Error::custom(format!(
+                "Cannot deserialize sequence as type: {:?}. Try using a list instead",
+                t
+            ))),
         }
     }
 }
