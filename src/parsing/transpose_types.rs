@@ -65,13 +65,11 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
             match success {
                 Some(()) => {}
                 None => {
+                    drop(out);
                     return Err(de::Error::custom(format!(
-                        "Too many columns specified: [{}] ({}) \nFound: ({})",
-                        // TODO: fix space and comma and repeated code in parsing:
-                        out.iter().fold(String::new(), |agg, var| agg
-                            + var.to_string().as_str()
-                            + ", "),
-                        out.len(),
+                        "Too many columns specified: {} ({}) \nFound: ({})",
+                        DisplayVecOutputTypes(self.0.0),
+                        self.0.0.len(),
                         i
                     )));
                 }
