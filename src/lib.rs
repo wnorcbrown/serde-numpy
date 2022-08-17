@@ -26,8 +26,8 @@ impl NumpyDeserializer {
     fn from_json_bytes(_cls: &PyType, _py: Python, bytes: &[u8]) -> PyResult<Self> {
         let result = serde_json::from_slice(bytes);
         match result {
-            Ok(structure_descriptor) => Ok(NumpyDeserializer {
-                structure_descriptor,
+            Ok(data) => Ok(NumpyDeserializer {
+                structure_descriptor: StructureDescriptor { data },
             }),
             Err(err) => Err(PyValueError::new_err(format!(
                 "Error parsing structure bytes {}",

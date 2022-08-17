@@ -40,18 +40,15 @@ impl<T> Array<T> {
         Array(Base::Array(vec![]), Some(vec![0]))
     }
 
-    pub fn push(&mut self, arr: Array<T>) {
-        match arr.0 {
-            Base::Scalar(value) => match self {
-                Array(Base::Array(ref mut vec), Some(ref mut shape)) => {
-                    vec.push(value);
-                    if shape.len() != 1 {
-                        panic!("not working for non 1D arrays")
-                    };
-                    shape[0] += 1
-                }
-                _ => panic!("not implemented"),
-            },
+    pub fn push(&mut self, value: T) {
+        match self {
+            Array(Base::Array(ref mut vec), Some(ref mut shape)) => {
+                vec.push(value);
+                if shape.len() != 1 {
+                    panic!("not working for non 1D arrays")
+                };
+                shape[0] += 1
+            }
             _ => panic!("not implemented"),
         }
     }
@@ -239,7 +236,8 @@ impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVis
     fn visit_seq<S>(mut self, mut seq: S) -> Result<Self::Value, S::Error>
     where
         S: SeqAccess<'de>,
-    {
+    {   
+        // only compute shape of first inner array visited
         if self.0.compute_shape {
             let mut outer_size: usize = 0;
             let mut compute_shape: bool = true;
@@ -256,6 +254,7 @@ impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVis
             self.0.shape.push(outer_size);
 
             Ok(())
+        // we now know the shape of the following arrays at this dimension
         } else {
             while let Some(_) = seq.next_element_seed(ArrayBuilder {
                 values: &mut self.0.values,
@@ -296,18 +295,15 @@ impl BoolArray {
         BoolArray(Base::Array(vec![]), Some(vec![0]))
     }
 
-    pub fn push(&mut self, arr: BoolArray) {
-        match arr.0 {
-            Base::Scalar(value) => match self {
-                BoolArray(Base::Array(ref mut vec), Some(ref mut shape)) => {
-                    vec.push(value);
-                    if shape.len() != 1 {
-                        panic!("not working for non 1D arrays")
-                    };
-                    shape[0] += 1
-                }
-                _ => panic!("not implemented"),
-            },
+    pub fn push(&mut self, value: bool) {
+        match self {
+            BoolArray(Base::Array(ref mut vec), Some(ref mut shape)) => {
+                vec.push(value);
+                if shape.len() != 1 {
+                    panic!("not working for non 1D arrays")
+                };
+                shape[0] += 1
+            }
             _ => panic!("not implemented"),
         }
     }

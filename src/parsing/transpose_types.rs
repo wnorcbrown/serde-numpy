@@ -39,7 +39,7 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
         S: SeqAccess<'de>,
     {
         let out: &mut Vec<OutputTypes> = self.0 .0;
-        for (i, output_type) in out.iter_mut().enumerate() {
+        for output_type in out.iter_mut() {
             let success = match output_type {
                 OutputTypes::I8(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
                 OutputTypes::I16(arr) => seq.next_element()?.map(|new_arr| arr.push(new_arr)),
@@ -67,10 +67,9 @@ impl<'de, 's> Visitor<'de> for TransposeSeqVisitor<'s> {
                 None => {
                     drop(out);
                     return Err(de::Error::custom(format!(
-                        "Too many columns specified: {} ({}) \nFound: ({})",
-                        DisplayVecOutputTypes(self.0.0),
-                        self.0.0.len(),
-                        i
+                        "Too many columns specified: {} ({})",
+                        DisplayVecOutputTypes(self.0 .0),
+                        self.0 .0.len(),
                     )));
                 }
             };
