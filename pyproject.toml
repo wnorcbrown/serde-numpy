@@ -1,17 +1,36 @@
 [build-system]
 build-backend = "maturin"
-requires = ["poetry_core>=1.0.0"]
+requires = ["maturin>=0.13"]
 
-[tool.poetry]
+[project]
 name = "serde-numpy"
 version = "0.1.0"
-description = "A library for parsing selected keys from json directly into numpy arrays"
-authors = ["Will Norcliffe Brown", "Radu Grosu"]
+description = "A library for deserializing json directly into numpy arrays"
+authors = [{name="Will Norcliffe Brown"}]
+dependencies = ["numpy>=1.18"]
+requires-python = ">=3.7"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python",
+    "Programming Language :: Rust",
+    "Typing :: Typed",
+]
 
-[tool.poetry.dependencies]
-numpy = ">=1.18"
-python = ">=3.6"
-maturin = "^0.12.1"
-
-[tool.poetry.dev-dependencies]
+[dev-dependencies]
 pytest = "^6.1"
+
+[project.urls]
+homepage = "https://github.com/wnorcbrown/serde-numpy"
+documentation = "https://github.com/wnorcbrown/serde-numpy"
+repository = "https://github.com/wnorcbrown/serde-numpy"
+
+[tool.maturin]
+sdist-include = ["LICENSE", "Readme.md"]

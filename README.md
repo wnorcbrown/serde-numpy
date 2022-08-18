@@ -1,6 +1,6 @@
 # serde-numpy
 
-serde-numpy is a library for deseriliazing JSON (or MessagePack) directly into numpy arrays.
+serde-numpy is a library for deserializing JSON directly into numpy arrays.
 
 ## Motivation
 If you've ever done something like this in your code:
@@ -10,9 +10,17 @@ data = json.load(open("data.json"))
 
 arr = np.array(data["x"])
 ```
-then this library does it faster by using less array allocations and less python.
+then this library does it faster by using fewer array allocations and less python.
 
 Speed ups are 1.5x - 8x times faster, depending on array sizes (and CPU), when compared to orjson + numpy.
+
+## Installation
+Currently only available for linux, python >= 3.7
+
+```bash
+pip install --upgrade pip
+pip install serde-numpy
+```
 
 ## Usage
 
@@ -111,7 +119,7 @@ Python types:
 
 ## Benchmarks
 
-All benchmarks were performed on an AMD Ryzen 9 3950X. (Add versions of python, linux, orjson and numpy). Orjson was selected as the comparison as it is the fastest on python json benchmarks and we have also found it to be fastest in practice.
+All benchmarks were performed on an AMD Ryzen 9 3950X (Python 3.8.12, numpy 1.23.2, orjson 3.6.4). Orjson was selected as the comparison as it is the fastest on python json benchmarks and we have also found it to be fastest in practice.
 
 ### 2D Array deserialization
 
@@ -121,6 +129,6 @@ Two tests are performed. The number of rows are kept constant at 10 while varyin
 
 ### Transposed arrays deserialization
 
-For this test we test the speed of deserializing multiple data types which have been serialized in a row-wise fashion and converting it to column-wise arrays during deseriliazition.
+For this test we test the speed of deserializing multiple data types which have been serialized in a row-wise fashion and converting it to column-wise arrays during deserializition.
 
 ![alt text](profile/transpose_profile.png "Transpose columns profiling")
