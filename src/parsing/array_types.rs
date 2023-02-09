@@ -103,6 +103,24 @@ where
     }
 }
 
+macro_rules! make_extend_visit {
+    ($dtype:ty, $name:ident, $conversion:tt) => {
+        #[inline]
+        fn $name<E: de::Error>(self, value: $dtype) -> Result<Self::Value, E> {
+            if let Some(scalar) = FromPrimitive::$conversion(value) {
+                Ok(self.0.values.push(scalar))
+            } else {
+                Err(E::custom(format!(
+                    "Could not cast {} ({}) into: {:?}",
+                    value,
+                    std::any::type_name::<$dtype>(),
+                    std::any::type_name::<T>()
+                )))
+            }
+        }
+    };
+}
+
 struct ExtendVecVisitor<'a, T: 'a>(ArrayBuilder<'a, T>);
 
 impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVisitor<'a, T> {
@@ -112,126 +130,16 @@ impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVis
         formatter.write_str("array of numbers of the same dtype")
     }
 
-    #[inline]
-    fn visit_f32<E: de::Error>(self, value: f32) -> Result<Self::Value, E> {
-        if let Some(scalar) = FromPrimitive::from_f32(value) {
-            Ok(self.0.values.push(scalar))
-        } else {
-            Err(E::custom(format!(
-                "Could not cast {} (f32) into: {:?}",
-                value,
-                std::any::type_name::<T>()
-            )))
-        }
-    }
-    #[inline]
-    fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
-        if let Some(scalar) = FromPrimitive::from_f64(value) {
-            Ok(self.0.values.push(scalar))
-        } else {
-            Err(E::custom(format!(
-                "Could not cast {} (f64) into: {:?}",
-                value,
-                std::any::type_name::<T>()
-            )))
-        }
-    }
-    #[inline]
-    fn visit_i8<E: de::Error>(self, value: i8) -> Result<Self::Value, E> {
-        if let Some(scalar) = FromPrimitive::from_i8(value) {
-            Ok(self.0.values.push(scalar))
-        } else {
-            Err(E::custom(format!(
-                "Could not cast {} (i8) into: {:?}",
-                value,
-                std::any::type_name::<T>()
-            )))
-        }
-    }
-    #[inline]
-    fn visit_i16<E: de::Error>(self, value: i16) -> Result<Self::Value, E> {
-        if let Some(scalar) = FromPrimitive::from_i16(value) {
-            Ok(self.0.values.push(scalar))
-        } else {
-            Err(E::custom(format!(
-                "Could not cast {} (i16) into: {:?}",
-                value,
-                std::any::type_name::<T>()
-            )))
-        }
-    }
-    #[inline]
-    fn visit_i32<E: de::Error>(self, value: i32) -> Result<Self::Value, E> {
-        if let Some(scalar) = FromPrimitive::from_i32(value) {
-            Ok(self.0.values.push(scalar))
-        } else {
-            Err(E::custom(format!(
-                "Could not cast {} (i32) into: {:?}",
-                value,
-                std::any::type_name::<T>()
-            )))
-        }
-    }
-    #[inline]
-    fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
-        if let Some(scalar) = FromPrimitive::from_i64(value) {
-            Ok(self.0.values.push(scalar))
-        } else {
-            Err(E::custom(format!(
-                "Could not cast {} (i64) into: {:?}",
-                value,
-                std::any::type_name::<T>()
-            )))
-        }
-    }
-    #[inline]
-    fn visit_u8<E: de::Error>(self, value: u8) -> Result<Self::Value, E> {
-        if let Some(scalar) = FromPrimitive::from_u8(value) {
-            Ok(self.0.values.push(scalar))
-        } else {
-            Err(E::custom(format!(
-                "Could not cast {} (u8) into: {:?}",
-                value,
-                std::any::type_name::<T>()
-            )))
-        }
-    }
-    #[inline]
-    fn visit_u16<E: de::Error>(self, value: u16) -> Result<Self::Value, E> {
-        if let Some(scalar) = FromPrimitive::from_u16(value) {
-            Ok(self.0.values.push(scalar))
-        } else {
-            Err(E::custom(format!(
-                "Could not cast {} (u16) into: {:?}",
-                value,
-                std::any::type_name::<T>()
-            )))
-        }
-    }
-    #[inline]
-    fn visit_u32<E: de::Error>(self, value: u32) -> Result<Self::Value, E> {
-        if let Some(scalar) = FromPrimitive::from_u32(value) {
-            Ok(self.0.values.push(scalar))
-        } else {
-            Err(E::custom(format!(
-                "Could not cast {} (u32) into: {:?}",
-                value,
-                std::any::type_name::<T>()
-            )))
-        }
-    }
-    #[inline]
-    fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
-        if let Some(scalar) = FromPrimitive::from_u64(value) {
-            Ok(self.0.values.push(scalar))
-        } else {
-            Err(E::custom(format!(
-                "Could not cast {} (u64) into: {:?}",
-                value,
-                std::any::type_name::<T>()
-            )))
-        }
-    }
+    make_extend_visit!(f32, visit_f32, from_f32);
+    make_extend_visit!(f64, visit_f64, from_f64);
+    make_extend_visit!(i8, visit_i8, from_i8);
+    make_extend_visit!(i16, visit_i16, from_i16);
+    make_extend_visit!(i32, visit_i32, from_i32);
+    make_extend_visit!(i64, visit_i64, from_i64);
+    make_extend_visit!(u8, visit_u8, from_u8);
+    make_extend_visit!(u16, visit_u16, from_u16);
+    make_extend_visit!(u32, visit_u32, from_u32);
+    make_extend_visit!(u64, visit_u64, from_u64);
 
     fn visit_seq<S>(mut self, mut seq: S) -> Result<Self::Value, S::Error>
     where
