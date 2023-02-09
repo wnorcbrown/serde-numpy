@@ -4,7 +4,7 @@ from typing import Any, Callable, Tuple, Type
 
 import numpy as np
 
-from .fixtures import json_str, msgpack_bytes, wonky_json_str
+from .fixtures import json_str, msgpack_bytes
 from .utils import deserialize_json, deserialize_msgpack, assert_correct_types, assert_same_structure
 
 

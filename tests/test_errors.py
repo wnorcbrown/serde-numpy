@@ -1,65 +1,51 @@
 import pytest
+from typing import Any, Callable, Tuple, Type
 
 import numpy as np
 
-from .fixtures import json_str, wonky_json_str
-from .utils import deserialize_json, assert_correct_types, assert_same_structure
+from .fixtures import json_str, msgpack_bytes, wonky_json_str, wonky_msgpack_bytes
+from .utils import deserialize_json, deserialize_msgpack, assert_correct_types, assert_same_structure
 
 from serde_numpy import NumpyDeserializer
 
 
-def test_deserialize_bool_fail(json_str: bytes):
+@pytest.mark.parametrize("name,type_", [("str", bool), ("bool", float), ("int", str), ("int", float)])
+@pytest.mark.parametrize("bytes_func", [(json_str, deserialize_json), (msgpack_bytes, deserialize_msgpack)])
+def test_deserialize_single_fail(bytes_func: Tuple[bytes, Callable], name: str, type_: Type):
+    input_bytes, deserialize_func = bytes_func
+    structure = {name: type_}
     with pytest.raises(TypeError):
         structure = {"str": bool}
-        deserialize_json(json_str, structure)
+        deserialize_func(input_bytes, structure)
 
 
-def test_deserialize_float_fail(json_str: bytes):
-    with pytest.raises(TypeError):
-        structure = {"bool": float}
-        deserialize_json(json_str, structure)
-
-
-def test_deserialize_str_fail(json_str: bytes):
-    with pytest.raises(TypeError):
-        structure = {"int": str}
-        deserialize_json(json_str, structure)
-
-
-def test_extra_column(json_str: bytes):
+# second structure is for transpose dtypes
+@pytest.mark.parametrize("structure", [{"stream0": [np.float64, np.int64, np.int8, bool]}, {"stream3": [[np.float64, np.int32, int, str]]}])
+@pytest.mark.parametrize("bytes_func", [(json_str, deserialize_json), (msgpack_bytes, deserialize_msgpack)])
+def test_extra_column(bytes_func: Tuple[bytes, Callable], structure: Any):
+    input_bytes, deserialize_func = bytes_func
     with pytest.raises(TypeError) as e:
-        structure = {"stream0": [np.float64, np.int64, np.int8, bool]}
-        deserialize_json(json_str, structure)
-    assert str(e.value).startswith("Too many columns specified: [np.float64, np.int64, np.int8, bool, ] (4) \nFound: (3)")
+        deserialize_func(input_bytes, structure)
+    assert str(e.value).startswith("Too many columns specified:")
 
 
-def test_extra_column_transpose(json_str: bytes):
+@pytest.mark.parametrize("structure", [{"extra_key": np.float32, "stream0": [np.float64, np.int64]}, {"stream4": [{"x": np.float64, "y": np.uint8, "extra_key_transpose": np.bool_}]}])
+@pytest.mark.parametrize("bytes_func", [(json_str, deserialize_json), (msgpack_bytes, deserialize_msgpack)])
+def test_extra_key(bytes_func: Tuple[bytes, Callable], structure: Any):
+    input_bytes, deserialize_func = bytes_func
     with pytest.raises(TypeError) as e:
-        structure = {"stream3": [[np.float64, np.int32, int, str]]}
-        deserialize_json(json_str, structure)
-    assert str(e.value).startswith("Too many columns specified: [np.float64, np.int32, int, str, ] (4) \nFound: (3)")
+        deserialize_func(input_bytes, structure)
+    assert str(e.value).startswith(r'Key(s) not found: ["extra_key')
 
 
-def test_extra_key(json_str: bytes):
-    with pytest.raises(TypeError) as e:
-        structure = {"extra_key": np.float32, "stream0": [np.float64, np.int64]}
-        deserialize_json(json_str, structure)
-    assert str(e.value).startswith(r'Key(s) not found: ["extra_key"]')
-
-
-def test_extra_key_transpose(json_str: bytes):
-    with pytest.raises(TypeError) as e:
-        structure = {"stream4": [{"x": np.float64, "y": np.uint8, "extra_key": np.bool_}]}
-        deserialize_json(json_str, structure)
-    assert str(e.value).startswith(r'Key(s) not found: ["extra_key"]')
-
-
-def test_irregular_array(wonky_json_str: bytes):
+@pytest.mark.parametrize("bytes_func", [(wonky_json_str, deserialize_json), (wonky_msgpack_bytes, deserialize_msgpack)])
+def test_irregular_array(bytes_func: Tuple[bytes, Callable]):
+    input_bytes, deserialize_func = bytes_func
     with pytest.raises(ValueError) as e:
         structure = {
             "irregular": np.float32,
             }
-        deserialize_json(wonky_json_str, structure)
+        deserialize_func(input_bytes, structure)
     assert str(e.value).startswith("Irregular shape found cannot parse as f32 array. Expected shape: [2, 2]  Total elements: 3")
 
 
@@ -70,44 +56,56 @@ def test_list_of_nested_structure():
     assert str(e.value).startswith("""structure unsupported. Currently sequences of nested structures are unsupported e.g. [{\"a\": {\"b\": Type}}])""")
 
 
-def test_deserialize_list_as_map(json_str: str):
+@pytest.mark.parametrize("bytes_func", [(json_str, deserialize_json), (msgpack_bytes, deserialize_msgpack)])
+def test_deserialize_list_as_map(bytes_func: Tuple[bytes, Callable]):
+    input_bytes, deserialize_func = bytes_func
     structure = {"stream0": {"a": np.float64, "b": np.int64, "c": np.int8, "d": bool}}
     with pytest.raises(TypeError) as e:
-        deserialize_json(json_str, structure)
+        deserialize_func(input_bytes, structure)
     assert str(e.value).startswith("Cannot deserialize sequence as map of arrays")
 
 
-def test_deserialize_list_as_type(json_str: str):
+@pytest.mark.parametrize("bytes_func", [(json_str, deserialize_json), (msgpack_bytes, deserialize_msgpack)])
+def test_deserialize_list_as_type(bytes_func: Tuple[bytes, Callable]):
+    input_bytes, deserialize_func = bytes_func
     structure = {"stream0": int}
     with pytest.raises(TypeError) as e:
-        deserialize_json(json_str, structure)
+        deserialize_func(input_bytes, structure)
     assert str(e.value).startswith("Could not deserialize as int")
 
 
-def test_deserialize_map_as_list(json_str: str):
+@pytest.mark.parametrize("bytes_func", [(json_str, deserialize_json), (msgpack_bytes, deserialize_msgpack)])
+def test_deserialize_map_as_list(bytes_func: Tuple[bytes, Callable]):
+    input_bytes, deserialize_func = bytes_func
     structure = [str, int, bool]
     with pytest.raises(TypeError) as e:
-        deserialize_json(json_str, structure)
+        deserialize_func(input_bytes, structure)
     assert str(e.value).startswith("Cannot deserialize map as sequence of arrays")
 
 
-def test_deserialize_map_as_type(json_str: str):
+@pytest.mark.parametrize("bytes_func", [(json_str, deserialize_json), (msgpack_bytes, deserialize_msgpack)])
+def test_deserialize_map_as_type(bytes_func: Tuple[bytes, Callable]):
+    input_bytes, deserialize_func = bytes_func
     structure = int
     with pytest.raises(TypeError) as e:
-        deserialize_json(json_str, structure)
+        deserialize_func(input_bytes, structure)
     assert str(e.value).startswith("Cannot deserialize map as type: int. Try using a dictionary instead")
 
 
-def test_deserialize_lol_as_lom(json_str: bytes):
+@pytest.mark.parametrize("bytes_func", [(json_str, deserialize_json), (msgpack_bytes, deserialize_msgpack)])
+def test_deserialize_lol_as_lom(bytes_func: Tuple[bytes, Callable]):
+    input_bytes, deserialize_func = bytes_func
     with pytest.raises(TypeError) as e:
         structure = {"stream3": [{"a": np.float64, "b": np.uint8, "c": np.uint8}]}
-        deserialized = deserialize_json(json_str, structure)
+        deserialized = deserialize_func(input_bytes, structure)
     # currently not maintaining order of input dictionaries
     assert str(e.value).startswith("""invalid type: sequence, expected map with elements: """)
 
 
-def test_deserialize_lom_as_lol(json_str: str):
+@pytest.mark.parametrize("bytes_func", [(json_str, deserialize_json), (msgpack_bytes, deserialize_msgpack)])
+def test_deserialize_lom_as_lol(bytes_func: Tuple[bytes, Callable]):
+    input_bytes, deserialize_func = bytes_func
     with pytest.raises(TypeError) as e:
         structure = {"stream4": [[np.float64, np.uint8, np.uint8]]}
-        deserialized = deserialize_json(json_str, structure)
+        deserialized = deserialize_func(input_bytes, structure)
     assert str(e.value).startswith("invalid type: map, expected sequence with elements: [np.float64, np.uint8, np.uint8, ]")
