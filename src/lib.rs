@@ -47,6 +47,16 @@ impl NumpyDeserializer {
             Err(err) => Err(PyTypeError::new_err(err.to_string())),
         }
     }
+
+    fn deserialize_msgpack(&self, py: Python, msgpack_bytes: &[u8]) -> PyResult<PyObject> {
+        // need to get rid of clone
+        let md = &mut rmp_serde::decode::Deserializer::new(msgpack_bytes);
+        let result = self.structure_descriptor.clone().deserialize(md);
+        match result {
+            Ok(value) => value.into_py(py),
+            Err(err) => Err(PyTypeError::new_err(err.to_string())),
+        }
+    }
 }
 
 #[pymodule]

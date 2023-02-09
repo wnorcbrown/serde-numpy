@@ -144,7 +144,7 @@ impl<'de, 'a, T: FromPrimitive + Deserialize<'de>> Visitor<'de> for ExtendVecVis
     fn visit_seq<S>(mut self, mut seq: S) -> Result<Self::Value, S::Error>
     where
         S: SeqAccess<'de>,
-    {   
+    {
         // only compute shape of first inner array visited
         if self.0.compute_shape {
             let mut outer_size: usize = 0;
