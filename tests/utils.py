@@ -3,9 +3,15 @@ import numpy as np
 
 from serde_numpy import NumpyDeserializer
 
-def deserialize(json_str: bytes, structure: dict):
+
+def deserialize_json(json_str: bytes, structure: dict):
     deserializer = NumpyDeserializer.from_dict(structure)
     return deserializer.deserialize_json(json_str)
+
+
+def deserialize_msgpack(msgpack_bytes: bytes, structure: dict):
+    deserializer = NumpyDeserializer.from_dict(structure)
+    return deserializer.deserialize_msgpack(msgpack_bytes)
 
 
 def assert_same_structure(dict_1: dict, dict_2: dict):

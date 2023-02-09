@@ -1,9 +1,9 @@
 import pytest
+import orjson
+import msgpack
 
 
-@pytest.fixture
-def json_str() -> bytes:
-    return b"""{
+json_str = b"""{
         "str":"h",
         "int":3,
         "bool":true,
@@ -36,11 +36,11 @@ def json_str() -> bytes:
                        [0, 9]],
             "arr3":[true,false,true],
             "unused_key":"a"}}"""
+
+msgpack_bytes = msgpack.dumps(orjson.loads(json_str))
     
 
-@pytest.fixture
-def wonky_json_str() -> bytes:
-    return b"""{
+wonky_json_str = b"""{
         "irregular":[[1.254439975231648,-0.6893827594332794],[-0.2922560025562806]],
         "irregular_columns":[[-1.720294114558863,0.5990469735869592],
                              [72,45,-58,-16,-14],
