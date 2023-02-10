@@ -1,6 +1,6 @@
 # serde-numpy
 
-serde-numpy is a library for deserializing JSON directly into numpy arrays.
+serde-numpy is a library for deserializing various formats directly into numpy arrays
 
 ## Motivation
 If you've ever done something like this in your code:
@@ -10,7 +10,7 @@ data = json.load(open("data.json"))
 
 arr = np.array(data["x"])
 ```
-then this library does it faster by using fewer array allocations and less python.
+then this library does it faster by using minimal array allocations and less python.
 
 Speed ups are 1.5x - 8x times faster, depending on array sizes (and CPU), when compared to orjson + numpy.
 
@@ -25,11 +25,11 @@ pip install serde-numpy
 ## Usage
 
 
-The user specifies the numpy dtypes within a `structure` corresponding to the json that they want to deserialize.
+The user specifies the numpy dtypes within a `structure` corresponding to the data that they want to deserialize.
 
 ### N-dimensional array
 
-A subset of the json's keys are specified in the `structure` which is used to initialize the `NumpyDeserializer` and then that subset of keys are deserialized accordingly:
+A subset of the json's (or msgpack) keys are specified in the `structure` which is used to initialize the `NumpyDeserializer` and then that subset of keys are deserialized accordingly:
 
 
 ```python
@@ -95,6 +95,9 @@ Sometimes people store data in jsons in a row-wise fashion as opposed to column-
 {'df': [['i', 'j', 'k'], array([ True, False,  True])]}
 ```
 
+### Currently supported data formats:
+- `JSON` :: `NumpyDeserializer.deserialize_json`
+- `MessagePack` :: `NumpyDeserializer.deserialize_msgpack`
 
 ### Currently supported types:
 Numpy types:
