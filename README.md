@@ -1,6 +1,6 @@
 # serde-numpy
 
-serde-numpy is a library for deserializing various formats directly into numpy arrays
+serde-numpy is a library for deserializing various file formats directly into numpy arrays
 
 ## Motivation
 If you've ever done something like this in your code:
