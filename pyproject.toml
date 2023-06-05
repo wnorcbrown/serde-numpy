@@ -27,6 +27,8 @@ classifiers = [
 
 [dev-dependencies]
 pytest = "^6.1"
+pillow = "^9.5"
+scikit-image= "^3.0"
 
 [project.urls]
 homepage = "https://github.com/wnorcbrown/serde-numpy"
