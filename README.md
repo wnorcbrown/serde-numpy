@@ -1,6 +1,89 @@
 # serde-numpy
 
-serde-numpy is a library for deserializing various file formats directly into numpy arrays
+serde-numpy is a library for efficient deserializing of various file formats directly into numpy arrays. 
+
+See how it works for:
+- [images](img)
+- [json formats](json)
+
+
+## Installation
+Currently only available for linux, python >= 3.7
+
+```bash
+pip install --upgrade pip
+pip install serde-numpy
+```
+
+# [Image formats](img)
+
+## Example usage
+
+```python
+>>> from serde_numpy import decode_jpeg, read_jpeg, decode_png, read_png
+>>> 
+>>> img = read_jpeg("test.jpg")
+>>> img
+array([[[ 75,  29,  82],
+        [ 96,  56, 133],
+        [ 72,  47, 168],
+        [ 63,  56, 179]],
+
+       [[216, 176, 203],
+        [173, 139, 190],
+        [111,  93, 188],
+        [129, 128, 225]],
+
+       [[ 75,  46,  21],
+        [ 73,  51,  48],
+        [ 81,  73, 115],
+        [157, 167, 209]],
+
+       [[165, 142,  99],
+        [181, 165, 144],
+        [169, 169, 188],
+        [185, 203, 222]]], dtype=uint8)
+>>> 
+>>> byte_array = open("test.png", "rb").read()
+>>> img = decode_png(byte_array)
+>>> img
+array([[[ 33,  47, 146],
+        [206,  19, 120],
+        [185,   8,  55],
+        [ 33,  54, 176]],
+
+       [[252, 156, 169],
+        [169, 139, 100],
+        [ 24, 128, 222],
+        [136, 146, 213]],
+
+       [[ 28,  24, 192],
+        [184,  51,  58],
+        [ 39,  61, 252],
+        [237, 165, 113]],
+
+       [[239, 111,  72],
+        [ 30, 242,  38],
+        [165, 161, 223],
+        [ 91, 246, 217]]], dtype=uint8)
+
+```
+
+## Benchmarks
+
+We compare serde_numpy's `decode_png` and `decode_jpeg` versus pillow's `Image.open` + `np.asarray` (which is the de facto standard for libraries than do a lot of image loading e.g. pytorch's `torchvision`).
+
+### JPEG
+JPEG decoding for square images:
+
+![alt text](profile/jpeg_profile.png "Jpeg profiling")
+
+### PNG
+PNG decoding for square images:
+
+![alt text](profile/png_profile.png "Png profiling")
+
+# [JSON Formats](json)
 
 ## Motivation
 If you've ever done something like this in your code:
@@ -14,13 +97,6 @@ then this library does it faster by using minimal array allocations and less pyt
 
 Speed ups are 1.5x - 8x times faster, depending on array sizes (and CPU), when compared to orjson + numpy.
 
-## Installation
-Currently only available for linux, python >= 3.7
-
-```bash
-pip install --upgrade pip
-pip install serde-numpy
-```
 
 ## Usage
 
