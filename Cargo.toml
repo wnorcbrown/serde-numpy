@@ -18,3 +18,5 @@ serde_json = "^1.0"
 rmp-serde = "^1.1"
 itertools = "0.7.8"
 pyo3 = { version = "^0.17.2", features = ["extension-module"] }
+zune-jpeg = "^0.3"
+zune-png = "^0.2"

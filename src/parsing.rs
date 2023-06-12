@@ -15,7 +15,7 @@ use pyo3::prelude::{IntoPy, PyAny, PyErr, PyObject, PyResult, Python};
 use pyo3::types::PyType;
 use pyo3::FromPyObject;
 
-mod array_types;
+pub(crate) mod array_types;
 mod python_types;
 mod transpose_types;
 use array_types::{Array, BoolArray};

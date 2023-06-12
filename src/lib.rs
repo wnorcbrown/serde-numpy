@@ -1,11 +1,17 @@
-use pyo3;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use std::fs::read;
+
+use pyo3::{self, wrap_pyfunction, pyfunction};
+use pyo3::exceptions::{PyTypeError, PyValueError, PyIOError};
 use pyo3::prelude::{pyclass, pymethods, pymodule, IntoPy, PyModule, PyObject, PyResult, Python};
 use pyo3::types::PyType;
 
 use serde::de::DeserializeSeed;
 mod parsing;
 use parsing::StructureDescriptor;
+
+mod img;
+use img::{decode_jpeg_bytes, decode_png_bytes};
+    
 
 #[pyclass]
 struct NumpyDeserializer {
@@ -59,8 +65,49 @@ impl NumpyDeserializer {
     }
 }
 
+#[pyfunction]
+fn decode_jpeg(py: Python, jpeg_bytes: &[u8]) -> PyResult<PyObject> {
+    match decode_jpeg_bytes(jpeg_bytes) {
+        Ok(output) => output.into_py(py),
+        Err(err) => Err(PyIOError::new_err(err.to_string())),
+    }
+}
+
+#[pyfunction]
+fn read_jpeg(py: Python, path: &str) -> PyResult<PyObject> {
+    match read(path) {
+        Ok(jpeg_bytes) => decode_jpeg(py, &jpeg_bytes),
+        Err(err) => Err(PyIOError::new_err(err.to_string())),
+    }
+}
+
+
+#[pyfunction]
+fn decode_png(py: Python, png_bytes: &[u8]) -> PyResult<PyObject> {
+    match decode_png_bytes(png_bytes) {
+        Ok(output) => output.into_py(py),
+        Err(err) => Err(PyIOError::new_err(format!("{:?}", err))),
+    }
+}
+
+
+#[pyfunction]
+fn read_png(py: Python, path: &str) -> PyResult<PyObject> {
+    match read(path) {
+        Ok(png_bytes) => decode_png(py, &png_bytes),
+        Err(err) => Err(PyIOError::new_err(err.to_string())),
+    }
+}
+
+
 #[pymodule]
 fn serde_numpy(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<NumpyDeserializer>()?;
+
+    m.add_function(wrap_pyfunction!(decode_jpeg, m)?)?;
+    m.add_function(wrap_pyfunction!(read_jpeg, m)?)?;
+    m.add_function(wrap_pyfunction!(decode_png, m)?)?;
+    m.add_function(wrap_pyfunction!(read_png, m)?)?;
+
     Ok(())
 }
