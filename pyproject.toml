@@ -4,7 +4,7 @@ requires = ["maturin>=0.13"]
 
 [project]
 name = "serde-numpy"
-version = "0.2.1"
+version = "0.3.0"
 description = "A library for deserializing various formats directly into numpy arrays"
 authors = [{name="Will Norcliffe Brown"}]
 dependencies = ["numpy>=1.18"]

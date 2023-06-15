@@ -1,6 +1,6 @@
 [package]
 name = "serde_numpy"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Will Norcliffe Brown", "Radu Grosu"]
 description = "A library for deserializing various formats directly into numpy arrays"
 edition = "2021"

@@ -3,8 +3,8 @@
 serde-numpy is a library for efficient deserializing of various file formats directly into numpy arrays. 
 
 See how it works for:
-- [images](img)
-- [json formats](json)
+- [images](#image-formats)
+- [json formats](#json-formats)
 
 
 ## Installation
@@ -15,7 +15,7 @@ pip install --upgrade pip
 pip install serde-numpy
 ```
 
-# [Image formats](img)
+# Image formats
 
 ## Example usage
 
@@ -71,7 +71,7 @@ array([[[ 33,  47, 146],
 
 ## Benchmarks
 
-We compare serde_numpy's `decode_png` and `decode_jpeg` versus pillow's `Image.open` + `np.asarray` (which is the de facto standard for libraries than do a lot of image loading e.g. pytorch's `torchvision`).
+All benchmarks were performed on an AMD Ryzen 9 3950X (Python 3.8.12, numpy 1.23.2, orjson 3.6.4). We compare serde_numpy's `decode_png` and `decode_jpeg` versus pillow's `Image.open` + `np.asarray` (which is the de facto standard for libraries than do a lot of image loading e.g. pytorch's `torchvision`).
 
 ### JPEG
 JPEG decoding for square images:
@@ -83,7 +83,7 @@ PNG decoding for square images:
 
 ![alt text](profile/png_profile.png "Png profiling")
 
-# [JSON Formats](json)
+# JSON Formats
 
 ## Motivation
 If you've ever done something like this in your code:
