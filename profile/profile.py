@@ -181,7 +181,7 @@ def run_profile_2d_array(dtypes: Sequence[type]):
 
 
 def run_profile_transposed_arrays(dtypes: Sequence[type]):
-    print("Profiling tranposed arrays deserialization...")
+    print("Profiling transposed arrays deserialization...")
     n_rows = (2 ** np.arange(0, 22, 2)).astype(int)
     times = get_times_transposed_arrays(n_rows, dtypes)
     fig = plt.figure(figsize=(6, 4))
