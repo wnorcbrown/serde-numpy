@@ -17,6 +17,52 @@ pip install serde-numpy
 
 # Image formats
 
+## Motivation
+
+Speed up your neural net training loops!
+
+Reading images quickly off disk into an array format is a common problem in training computer vision models. By using serde numpy we get access to the fast [zune](https://github.com/etemesi254/zune-image) library in rust, which we use to write directly to `numpy` arrays - no intermediate `Image` formats, therefore less copying and less python.
+
+Here's a demonstration of the speed up:
+```python
+# a lot of libraries do this:
+def pillow_plus_np(path: str) -> np.ndarray:
+    img = Image.open(path)
+    return np.array(img)
+
+# this is a bit faster:
+def torch_read_png(path: str) -> np.ndarray:
+    byte_array = torchvision.io.read_file(path)
+    return torchvision.io.decode_png(byte_array)
+
+BATCH_SIZE = 128
+NUM_WORKERS = 4
+functions = (
+    "serde_numpy.read_png",
+    "torch_read_png",
+    "torchvision.io.read_image",
+    "pillow_plus_npasarray",
+)
+for name in functions:
+    exec(f"f = {name}")
+    ds = ImageFolder(base.as_posix(), loader=f)
+    loader = DataLoader(
+        ds, 
+        batch_size=BATCH_SIZE, 
+        num_workers=NUM_WORKERS, 
+        drop_last=True)
+    for batch in tqdm(loader, total=len(ds) // BATCH_SIZE, desc=name, ncols=96):
+        x, y = batch
+```
+```
+serde_numpy.read_png: 100%|████████████████████████████████| 3906/3906 [00:05<00:00, 760.66it/s]
+torch_read_png: 100%|██████████████████████████████████████| 3906/3906 [00:08<00:00, 467.31it/s]
+torchvision.io.read_image: 100%|███████████████████████████| 3906/3906 [00:08<00:00, 463.77it/s]
+pillow_plus_npasarray: 100%|███████████████████████████████| 3906/3906 [00:13<00:00, 294.49it/s]
+```
+```python
+# serde_numpy is nearly twice the speed
+```
 ## Example usage
 
 ```python
